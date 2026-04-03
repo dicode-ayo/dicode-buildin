@@ -1,0 +1,32 @@
+apiVersion: dicode/v1
+kind: Task
+name: "Native Desktop Notification"
+description: "Delivers a native OS desktop notification via deno_notify. Replaces the browser Service Worker notification system (issue #60)."
+runtime: deno
+
+trigger:
+  manual: true
+
+params:
+  - name: title
+    type: string
+    required: true
+    description: "Notification title"
+  - name: body
+    type: string
+    required: true
+    description: "Notification body text"
+  - name: priority
+    type: string
+    default: "default"
+    description: "Notification urgency: min | low | default | high | urgent"
+  - name: tags
+    type: string
+    default: ""
+    description: "Comma-separated emoji shortcode tags, e.g. 'warning,skull'"
+
+timeout: 10s
+
+notify:
+  on_success: false
+  on_failure: false

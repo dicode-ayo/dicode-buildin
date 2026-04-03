@@ -1,0 +1,7 @@
+apiVersion: dicode/v1
+kind: TaskSet
+name: dicode-builtin
+tasks:
+  - path: ./webui
+  - path: ./notify
+  - path: ./tray

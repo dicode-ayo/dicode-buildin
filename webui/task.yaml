@@ -1,0 +1,9 @@
+apiVersion: dicode/v1
+kind: Task
+name: "WebUI"
+description: "Dashboard SPA and REST API gateway"
+runtime: deno
+trigger:
+  daemon: true
+security:
+  allowed_tasks: ["*"]
