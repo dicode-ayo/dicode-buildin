@@ -8,8 +8,10 @@
  * four ai-agent entries would run the same suite four times.
  *
  * Entries are also skipped when the task declares a required param with no
- * default: `dicode task test` runs the fire-path params preflight and has no
- * way to supply one, so those can only be covered by `deno test`.
+ * default: `dicode task test` runs the fire-path params preflight against
+ * params it then discards, so those can only be covered by `deno test`. That
+ * is a bug, not a property of testing — dicode-ayo/dicode-core#827. Delete
+ * the `unsatisfiable` check below once it lands and this covers all 19.
  *
  *   deno run --allow-read scripts/tasks-with-tests.ts
  */
