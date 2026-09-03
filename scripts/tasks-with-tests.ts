@@ -7,6 +7,10 @@
  * holding a task.test.ts, and emit one entry per directory — otherwise the
  * four ai-agent entries would run the same suite four times.
  *
+ * Entries are also skipped when the task declares a required param with no
+ * default: `dicode task test` runs the fire-path params preflight and has no
+ * way to supply one, so those can only be covered by `deno test`.
+ *
  *   deno run --allow-read scripts/tasks-with-tests.ts
  */
 import { parse as parseYaml } from "jsr:@std/yaml@1";
@@ -32,6 +36,21 @@ for (const [name, entry] of Object.entries(entries)) {
     continue; // no sibling test file
   }
   seen.add(dir);
+
+  // deno-lint-ignore no-explicit-any
+  let spec: any;
+  try {
+    spec = parseYaml(await Deno.readTextFile(path));
+  } catch {
+    continue;
+  }
+  const params: Record<string, { required?: boolean; default?: unknown }> =
+    spec?.params ?? {};
+  const unsatisfiable = Object.values(params).some(
+    (p) => p?.required === true && p?.default === undefined,
+  );
+  if (unsatisfiable) continue;
+
   ids.push(`buildin/${name}`);
 }
 

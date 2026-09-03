@@ -24,7 +24,7 @@ jobs:
 
       - uses: denoland/setup-deno@v2
         with:
-          deno-version: v2.x
+          deno-version: v2.3.3
 
       - run: deno lint
 
@@ -41,7 +41,7 @@ jobs:
 
       - uses: denoland/setup-deno@v2
         with:
-          deno-version: v2.x
+          deno-version: v2.3.3
 
       - name: Run Deno unit tests
         run: deno test --allow-all --config=deno.json './**/task.test.ts' './taskset.test.ts'
@@ -59,7 +59,7 @@ jobs:
 
       - uses: denoland/setup-deno@v2
         with:
-          deno-version: v2.x
+          deno-version: v2.3.3
 
       # The daemon is the authority on whether a task.yaml is valid — it runs
       # the strict validator this repo has no Go to call directly.
