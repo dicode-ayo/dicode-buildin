@@ -1,14 +1,16 @@
-import { LitElement, html } from "https://esm.sh/lit@3";
+import { html, LitElement } from "https://esm.sh/lit@3";
 import { api } from "../lib/api.js";
 import "./dc-provider-card.js";
 
 const POLL_INTERVAL_MS = 5_000;
 
 class DcProvidersPage extends LitElement {
-  createRenderRoot() { return this; }
+  createRenderRoot() {
+    return this;
+  }
 
   static properties = {
-    _rows:   { state: true },
+    _rows: { state: true },
     _status: { state: true },
   };
 
@@ -33,7 +35,7 @@ class DcProvidersPage extends LitElement {
   }
 
   async _refresh() {
-    if (this._inFlight) return;       // skip overlap on slow networks
+    if (this._inFlight) return; // skip overlap on slow networks
     this._inFlight = true;
     try {
       const rows = await api.list();
@@ -53,7 +55,7 @@ class DcProvidersPage extends LitElement {
     try {
       const out = await api.connect(provider);
       if (!out?.url) throw new Error("provider task did not return a url");
-      window.open(out.url, "_blank", "noopener");
+      globalThis.open(out.url, "_blank", "noopener");
     } catch (err) {
       const msg = err.message || String(err);
       if (typeof card.setError === "function") {
@@ -68,20 +70,31 @@ class DcProvidersPage extends LitElement {
 
   _renderBody() {
     if (this._status === "loading") {
-      return html`<p style="color:var(--muted)">Loading…</p>`;
+      return html`
+        <p style="color:var(--muted)">Loading…</p>
+      `;
     }
     if (this._status.startsWith("error:")) {
-      return html`<p style="color:var(--pill-err)">${this._status}</p>`;
+      return html`
+        <p style="color:var(--pill-err)">${this._status}</p>
+      `;
     }
     const rows = this._rows ?? [];
     if (rows.length === 0) {
-      return html`<p style="color:var(--muted)">No providers configured. Set the <code>providers</code> param on this task to enable some.</p>`;
+      return html`
+        <p style="color:var(--muted)">
+          No providers configured. Set the <code>providers</code> param on this task to
+          enable some.
+        </p>
+      `;
     }
     return html`
       <ul class="providers-grid">
-        ${rows.map(row => html`
-          <li><dc-provider-card .row=${row}></dc-provider-card></li>
-        `)}
+        ${rows.map((row) =>
+        html`
+          <li><dc-provider-card .row="${row}"></dc-provider-card></li>
+        `
+      )}
       </ul>
     `;
   }
@@ -92,7 +105,8 @@ class DcProvidersPage extends LitElement {
         <h1>OAuth providers</h1>
         <p style="color:var(--muted);margin:0;max-width:640px">
           Click <strong>Connect</strong> on a provider to start an authorisation flow.
-          The card flips to <strong>Connected</strong> automatically once the token lands in the secrets store.
+          The card flips to <strong>Connected</strong> automatically once the token
+          lands in the secrets store.
         </p>
       </header>
       <main style="margin-top:1.25rem">

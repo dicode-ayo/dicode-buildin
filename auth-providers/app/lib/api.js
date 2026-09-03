@@ -20,7 +20,7 @@ async function postJson(body) {
   const res = await fetch(ENDPOINT, {
     method: "POST",
     headers: {
-      "Accept":       "application/json",
+      "Accept": "application/json",
       "Content-Type": "application/json",
     },
     body: JSON.stringify(body),
@@ -36,6 +36,6 @@ async function postJson(body) {
 }
 
 export const api = {
-  list:    ()         => postJson({ action: "list" }),
+  list: () => postJson({ action: "list" }),
   connect: (provider) => postJson({ action: "connect", provider }),
 };

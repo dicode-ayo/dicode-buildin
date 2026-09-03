@@ -9,7 +9,11 @@
 import { setupHarness } from "../sdk-test.ts";
 await setupHarness(import.meta.url);
 
-import { parseHostRegistered, probeSNIHost, trayVisibilityHint } from "./sni.ts";
+import {
+  parseHostRegistered,
+  probeSNIHost,
+  trayVisibilityHint,
+} from "./sni.ts";
 
 test("trayVisibilityHint: no hint on macOS/Windows (native tray)", () => {
   assert.equal(trayVisibilityHint("darwin", false), null);

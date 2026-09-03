@@ -10,15 +10,15 @@
 // exchange with the upstream provider, not the daemon.
 
 import {
-  Identity,
   buildAuthURL,
+  Identity,
   type StoredIdentity,
 } from "npm:dicode-relay@0.2.1/client";
 
-const IDENTITY_CTX   = "dicode/relay-identity/v1";
-const PENDING_CTX    = "dicode/oauth-pending/v1";
-const PREFIX         = "relay/";
-const ID_KEY         = "relay/identity-v1";
+const IDENTITY_CTX = "dicode/relay-identity/v1";
+const PENDING_CTX = "dicode/oauth-pending/v1";
+const PREFIX = "relay/";
+const ID_KEY = "relay/identity-v1";
 
 function b64decode(s: string): Uint8Array {
   return Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
@@ -38,31 +38,36 @@ function b64urlEncode(bytes: Uint8Array): string {
 
 export default async function main({ params, dicode, output }: DicodeSdk) {
   const provider = String((await params.get("provider")) ?? "");
-  const scope    = String((await params.get("scope"))    ?? "");
+  const scope = String((await params.get("scope")) ?? "");
   if (!provider) throw new Error("provider parameter is required");
 
   const brokerURL = Deno.env.get("DICODE_RELAY_BROKER_URL");
   if (!brokerURL) {
-    throw new Error("relay broker URL not configured (DICODE_RELAY_BROKER_URL)");
+    throw new Error(
+      "relay broker URL not configured (DICODE_RELAY_BROKER_URL)",
+    );
   }
 
-  const datadir     = Deno.env.get("DICODE_DATADIR") ?? ".";
-  const root        = `${datadir}/relay-store`;
-  const storageTask = Deno.env.get("DICODE_STORAGE_TASK") ?? "buildin/local-storage";
+  const datadir = Deno.env.get("DICODE_DATADIR") ?? ".";
+  const root = `${datadir}/relay-store`;
+  const storageTask = Deno.env.get("DICODE_STORAGE_TASK") ??
+    "buildin/local-storage";
 
   // 1. Load identity (blob is encrypted at rest; decrypt happens here).
   const identity = await loadIdentity(dicode, storageTask, root);
 
   // 2. Generate PKCE verifier + challenge.
-  const verifier  = crypto.randomUUID() + crypto.randomUUID();
+  const verifier = crypto.randomUUID() + crypto.randomUUID();
   const challenge = b64urlEncode(
-    new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier))),
+    new Uint8Array(
+      await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier)),
+    ),
   );
 
   // 3. Build the signed URL.
   const result = await buildAuthURL({
     provider,
-    scope:     scope || undefined,
+    scope: scope || undefined,
     identity,
     brokerURL,
     challenge,
@@ -71,9 +76,9 @@ export default async function main({ params, dicode, output }: DicodeSdk) {
   // 4. Persist {sessionId → provider} so auth-relay can resolve the provider
   //    on callback. Encrypted at rest for hygiene; not security-critical.
   await dicode.run_task(storageTask, {
-    op:     "put",
-    key:    `oauth-pending/${result.sessionId}`,
-    value:  b64encode(
+    op: "put",
+    key: `oauth-pending/${result.sessionId}`,
+    value: b64encode(
       await dicode.crypto.encrypt(
         PENDING_CTX,
         new TextEncoder().encode(JSON.stringify({ provider })),
@@ -104,7 +109,9 @@ export default async function main({ params, dicode, output }: DicodeSdk) {
 
 // dicode.run_task returns a RunResult envelope: { runID, status, returnValue }.
 // Unwrap it to get the storage task's actual return value.
-function unwrapRunResult(raw: unknown): { ok: boolean; value?: string; error?: string } {
+function unwrapRunResult(
+  raw: unknown,
+): { ok: boolean; value?: string; error?: string } {
   const envelope = raw as { returnValue?: unknown };
   const rv = envelope?.returnValue ?? raw;
   return rv as { ok: boolean; value?: string; error?: string };
@@ -115,12 +122,14 @@ async function loadIdentity(
   storageTask: string,
   root: string,
 ): Promise<Identity> {
-  const res = unwrapRunResult(await dicode.run_task(storageTask, {
-    op: "get",
-    key: ID_KEY,
-    prefix: PREFIX,
-    root,
-  }));
+  const res = unwrapRunResult(
+    await dicode.run_task(storageTask, {
+      op: "get",
+      key: ID_KEY,
+      prefix: PREFIX,
+      root,
+    }),
+  );
 
   if (!res.ok || !res.value) {
     throw new Error(

@@ -5,7 +5,12 @@
 
 import type { DicodeSdk } from "../sdk.ts";
 import { collectFields, renderMessage } from "./render.ts";
-import { MAX_ATTEMPTS, backoffDelayMs, isRetryableStatus, stripToken } from "./retry.ts";
+import {
+  backoffDelayMs,
+  isRetryableStatus,
+  MAX_ATTEMPTS,
+  stripToken,
+} from "./retry.ts";
 
 const API_BASE = "https://api.telegram.org";
 
@@ -31,11 +36,12 @@ export default async function main({ params, input }: DicodeSdk) {
   if (!token) {
     throw new Error(
       "TELEGRAM_BOT_TOKEN is not set — create a bot with @BotFather, then " +
-      "`dicode secrets set TELEGRAM_BOT_TOKEN <token>`",
+        "`dicode secrets set TELEGRAM_BOT_TOKEN <token>`",
     );
   }
 
-  const chatID = (all["chat_id"] ?? "").trim() || (Deno.env.get("TELEGRAM_CHAT_ID") ?? "").trim();
+  const chatID = (all["chat_id"] ?? "").trim() ||
+    (Deno.env.get("TELEGRAM_CHAT_ID") ?? "").trim();
   if (!chatID) {
     throw new Error(
       "no target chat — pass chat_id=<id> or `dicode secrets set TELEGRAM_CHAT_ID <id>`",
@@ -86,10 +92,13 @@ export default async function main({ params, input }: DicodeSdk) {
     if (!isRetryableStatus(res.status) || attempt === MAX_ATTEMPTS) break;
     const delay = backoffDelayMs(attempt, payload?.parameters?.retry_after);
     if (delay === null) {
-      lastError += ` (retry_after ${payload?.parameters?.retry_after}s exceeds the task budget)`;
+      lastError +=
+        ` (retry_after ${payload?.parameters?.retry_after}s exceeds the task budget)`;
       break;
     }
-    console.log(`telegram send attempt ${attempt} failed, retrying: ${lastError}`);
+    console.log(
+      `telegram send attempt ${attempt} failed, retrying: ${lastError}`,
+    );
     await sleep(delay);
   }
 

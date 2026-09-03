@@ -17,7 +17,10 @@
 
 import type { DicodeSdk } from "../../sdk.ts";
 
-interface SecretRequest { name: string; optional: boolean; }
+interface SecretRequest {
+  name: string;
+  optional: boolean;
+}
 
 interface DopplerSecretsResp {
   secrets: Record<string, { computed: string }>;
@@ -29,15 +32,20 @@ export default async function main({ params, output }: DicodeSdk) {
 
   const token = Deno.env.get("DOPPLER_TOKEN");
   if (!token) {
-    throw new Error("DOPPLER_TOKEN not set; run `dicode secrets set DOPPLER_TOKEN dp.st.xxx`");
+    throw new Error(
+      "DOPPLER_TOKEN not set; run `dicode secrets set DOPPLER_TOKEN dp.st.xxx`",
+    );
   }
 
-  const resp = await fetch("https://api.doppler.com/v3/configs/config/secrets", {
-    headers: {
-      "Accept": "application/json",
-      "Authorization": "Bearer " + token,
+  const resp = await fetch(
+    "https://api.doppler.com/v3/configs/config/secrets",
+    {
+      headers: {
+        "Accept": "application/json",
+        "Authorization": "Bearer " + token,
+      },
     },
-  });
+  );
   if (!resp.ok) {
     throw new Error(`Doppler API ${resp.status}: ${await resp.text()}`);
   }
@@ -49,7 +57,9 @@ export default async function main({ params, output }: DicodeSdk) {
     if (entry && typeof entry.computed === "string") {
       out[r.name] = entry.computed;
     } else if (!r.optional) {
-      throw new Error(`required secret ${r.name} not present in Doppler config`);
+      throw new Error(
+        `required secret ${r.name} not present in Doppler config`,
+      );
     }
   }
 

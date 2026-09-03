@@ -76,7 +76,10 @@ function isRecord(v: unknown): v is Record<string, unknown> {
  * `input` supplies the failure-chain path, whose engine-stamped keys are
  * camelCase (taskID/runID) where the hook params are snake_case.
  */
-export function collectFields(params: Record<string, string>, input: unknown): NotifyFields {
+export function collectFields(
+  params: Record<string, string>,
+  input: unknown,
+): NotifyFields {
   const rec = isRecord(input) ? input : {};
 
   const pick = (...names: string[]): string | undefined => {
@@ -125,17 +128,24 @@ function derive(f: NotifyFields, kind: Kind): { title: string; body: string } {
     case "approval":
       return {
         title: "dicode: task pending approval",
-        body: `${who} is held pending approval and will not run until it is approved.`,
+        body:
+          `${who} is held pending approval and will not run until it is approved.`,
       };
     case "failure":
-      return { title: "dicode: task failed", body: `${who} finished with status ${f.status}.` };
+      return {
+        title: "dicode: task failed",
+        body: `${who} finished with status ${f.status}.`,
+      };
     case "suspended":
       return {
         title: "dicode: an agent needs your reply",
         body: `${who} is paused for your input.`,
       };
     case "status":
-      return { title: `dicode: task ${f.status}`, body: `${who} finished with status ${f.status}.` };
+      return {
+        title: `dicode: task ${f.status}`,
+        body: `${who} finished with status ${f.status}.`,
+      };
     default:
       return { title: "dicode notification", body: "" };
   }
@@ -169,14 +179,18 @@ function clamp(lines: string[], max: number): string {
  */
 export function runLogsURL(f: NotifyFields): string | undefined {
   if (!f.base_url || !f.run_id) return undefined;
-  return `${f.base_url.replace(/\/+$/, "")}/?run=${encodeURIComponent(f.run_id)}`;
+  return `${f.base_url.replace(/\/+$/, "")}/?run=${
+    encodeURIComponent(f.run_id)
+  }`;
 }
 
 /** Render one notification. Never throws, whatever subset of fields arrived. */
 export function renderMessage(f: NotifyFields): RenderedMessage {
   const derived = derive(f, classify(f));
 
-  const lines: string[] = [`<b>${escapeHtml(cut(f.title ?? derived.title, TITLE_MAX))}</b>`];
+  const lines: string[] = [
+    `<b>${escapeHtml(cut(f.title ?? derived.title, TITLE_MAX))}</b>`,
+  ];
 
   // Dedup below tests the *shown* body: a URL past the cut is not in the
   // message, so matching the full text would drop the only copy of the link.
@@ -184,12 +198,18 @@ export function renderMessage(f: NotifyFields): RenderedMessage {
   if (body) lines.push("", escapeHtml(body));
 
   const detail: string[] = [];
-  if (f.task_id !== undefined) detail.push(`Task: <code>${escapeHtml(f.task_id)}</code>`);
-  if (f.run_id !== undefined) detail.push(`Run: <code>${escapeHtml(f.run_id)}</code>`);
+  if (f.task_id !== undefined) {
+    detail.push(`Task: <code>${escapeHtml(f.task_id)}</code>`);
+  }
+  if (f.run_id !== undefined) {
+    detail.push(`Run: <code>${escapeHtml(f.run_id)}</code>`);
+  }
   if (f.status !== undefined) detail.push(`Status: ${escapeHtml(f.status)}`);
   // The content hash is what re-pends an approval; without it, two holds on the
   // same task are indistinguishable. A prefix is enough to tell them apart.
-  if (f.hash !== undefined) detail.push(`Content: <code>${escapeHtml(f.hash.slice(0, 12))}</code>`);
+  if (f.hash !== undefined) {
+    detail.push(`Content: <code>${escapeHtml(f.hash.slice(0, 12))}</code>`);
+  }
   // The suspend hook inlines the resume link in its body; a second copy is noise.
   if (f.approve_url !== undefined && !body.includes(f.approve_url)) {
     detail.push(`Approve: ${escapeHtml(f.approve_url)}`);
@@ -202,12 +222,19 @@ export function renderMessage(f: NotifyFields): RenderedMessage {
   // present. The daemon builds resume links to this same form, so an equal
   // resume_url is the same link under another name.
   const logsURL = runLogsURL(f);
-  if (logsURL !== undefined && !body.includes(logsURL) && logsURL !== f.resume_url) {
+  if (
+    logsURL !== undefined && !body.includes(logsURL) && logsURL !== f.resume_url
+  ) {
     detail.push(`Logs: ${escapeHtml(logsURL)}`);
   }
   if (detail.length > 0) lines.push("", ...detail);
 
-  if (f.output !== undefined) lines.push("", `<pre>${escapeHtml(cut(f.output, OUTPUT_MAX))}</pre>`);
+  if (f.output !== undefined) {
+    lines.push("", `<pre>${escapeHtml(cut(f.output, OUTPUT_MAX))}</pre>`);
+  }
 
-  return { text: clamp(lines, MAX_TEXT), silent: SILENT_PRIORITIES.has(f.priority ?? "") };
+  return {
+    text: clamp(lines, MAX_TEXT),
+    silent: SILENT_PRIORITIES.has(f.priority ?? ""),
+  };
 }

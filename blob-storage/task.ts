@@ -12,11 +12,24 @@
 // stop a caller from escaping its own namespace directory or another
 // namespace's directory via a crafted namespace or key.
 
-interface PutResult { ok: true }
-interface GetResult { ok: true; value: string }
-interface DeleteResult { ok: true }
-interface ListResult { ok: true; keys: string[] }
-interface ErrorResult { ok: false; error: string }
+interface PutResult {
+  ok: true;
+}
+interface GetResult {
+  ok: true;
+  value: string;
+}
+interface DeleteResult {
+  ok: true;
+}
+interface ListResult {
+  ok: true;
+  keys: string[];
+}
+interface ErrorResult {
+  ok: false;
+  error: string;
+}
 
 const BLOB_EXT = ".bin";
 
@@ -27,7 +40,9 @@ function assertSafeSegment(label: string, value: string): void {
 }
 
 function namespaceDir(root: string, namespace: string): string {
-  if (!namespace) throw new Error(`invalid namespace: ${JSON.stringify(namespace)}`);
+  if (!namespace) {
+    throw new Error(`invalid namespace: ${JSON.stringify(namespace)}`);
+  }
   const segments = namespace.split("/");
   for (const segment of segments) {
     assertSafeSegment("namespace", segment);
@@ -53,8 +68,9 @@ function base64Encode(b: Uint8Array): string {
   return btoa(s);
 }
 
-export default async function main({ params }: DicodeSdk):
-  Promise<PutResult | GetResult | DeleteResult | ListResult | ErrorResult> {
+export default async function main(
+  { params }: DicodeSdk,
+): Promise<PutResult | GetResult | DeleteResult | ListResult | ErrorResult> {
   const op = String((await params.get("op")) ?? "");
   const namespace = String((await params.get("namespace")) ?? "");
   const key = String((await params.get("key")) ?? "");

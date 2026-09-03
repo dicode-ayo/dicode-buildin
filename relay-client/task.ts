@@ -12,12 +12,12 @@ import {
 
 import type { DicodeSdk } from "../sdk.ts";
 
-const IDENTITY_CTX   = "dicode/relay-identity/v1";
+const IDENTITY_CTX = "dicode/relay-identity/v1";
 const BROKER_KEY_CTX = "dicode/relay-broker-key/v1";
-const PREFIX         = "relay/";
-const ID_KEY         = "relay/identity-v1";
+const PREFIX = "relay/";
+const ID_KEY = "relay/identity-v1";
 const BROKER_KEY_KEY = "relay/broker-key-v1";
-const ROOT_DEFAULT   = "relay-store"; // appended under the storage task's data dir
+const ROOT_DEFAULT = "relay-store"; // appended under the storage task's data dir
 
 function b64encode(bytes: Uint8Array): string {
   let s = "";
@@ -56,7 +56,8 @@ export function isAbortedHandshakeFault(err: unknown): boolean {
     /\bws(@[^/\s]+)?\/lib\/websocket\.js/.test(stack);
   // Both V8 phrasings: "Cannot read properties of null (reading 'x')" and
   // the older "Cannot read property 'x' of null".
-  return inWsHandshake && /Cannot read propert(?:y|ies).* of null/.test(err.message);
+  return inWsHandshake &&
+    /Cannot read propert(?:y|ies).* of null/.test(err.message);
 }
 
 // Set while a RelayClient.run() is in flight; a swallowed fault rejects
@@ -95,7 +96,12 @@ export default async function main(sdk: DicodeSdk): Promise<void> {
       // happens on AbortSignal — i.e. clean daemon shutdown. Exit cleanly.
       return;
     } catch (err) {
-      console.error(`relay-client: top-level error, retrying in ${Math.round(backoff / 1000)}s:`, err);
+      console.error(
+        `relay-client: top-level error, retrying in ${
+          Math.round(backoff / 1000)
+        }s:`,
+        err,
+      );
       await new Promise((r) => setTimeout(r, backoff));
       backoff = Math.min(backoff * 2, OUTER_BACKOFF_MAX_MS);
     }
@@ -122,13 +128,18 @@ async function runOnce(sdk: DicodeSdk): Promise<void> {
   const serverURLs = resolveServerURLs();
   const portStr = Deno.env.get("DICODE_RELAY_LOCAL_PORT") ?? "";
   const localPort = Number(portStr);
-  const storageTask = Deno.env.get("DICODE_STORAGE_TASK") ?? "buildin/local-storage";
+  const storageTask = Deno.env.get("DICODE_STORAGE_TASK") ??
+    "buildin/local-storage";
 
   if (serverURLs.length === 0) {
-    throw new Error("relay-client: no relay server URL set (DICODE_RELAY_SERVER_URLS / DICODE_RELAY_SERVER_URL)");
+    throw new Error(
+      "relay-client: no relay server URL set (DICODE_RELAY_SERVER_URLS / DICODE_RELAY_SERVER_URL)",
+    );
   }
   if (!Number.isFinite(localPort) || localPort <= 0) {
-    throw new Error(`relay-client: DICODE_RELAY_LOCAL_PORT invalid (${portStr})`);
+    throw new Error(
+      `relay-client: DICODE_RELAY_LOCAL_PORT invalid (${portStr})`,
+    );
   }
 
   // ── identity load-or-generate ───────────────────────────────────────
@@ -169,7 +180,8 @@ async function runOnce(sdk: DicodeSdk): Promise<void> {
     // The channel is TLS-server-authenticated, so the broker key is trusted
     // and persisted unconditionally (auth-relay reads it out-of-band to
     // verify OAuth delivery envelope signatures).
-    onBrokerPubkey: (brokerKeyB64: string) => saveBrokerKey(sdk, storageTask, brokerKeyB64),
+    onBrokerPubkey: (brokerKeyB64: string) =>
+      saveBrokerKey(sdk, storageTask, brokerKeyB64),
     log: console,
     onStatus: (s) => {
       void sdk.kv.set("status", s);
@@ -203,7 +215,10 @@ async function loadOrGenerateIdentity(
       const stored = JSON.parse(new TextDecoder().decode(pt)) as StoredIdentity;
       return await Identity.import(stored);
     } catch (err) {
-      console.error("relay-client: failed to decrypt stored identity, regenerating:", err);
+      console.error(
+        "relay-client: failed to decrypt stored identity, regenerating:",
+        err,
+      );
       // Fall through to regenerate. This path occurs if the master key
       // changed (passphrase rotation) — in which case the old blob is
       // unrecoverable and a fresh identity is the only recovery.
@@ -222,7 +237,9 @@ async function loadOrGenerateIdentity(
 
 // dicode.run_task returns a RunResult envelope: { runID, status, returnValue }.
 // Unwrap it to get the storage task's actual return value.
-function unwrapRunResult(raw: unknown): { ok: boolean; value?: string; error?: string } {
+function unwrapRunResult(
+  raw: unknown,
+): { ok: boolean; value?: string; error?: string } {
   const envelope = raw as { returnValue?: unknown };
   const rv = envelope?.returnValue ?? raw;
   return rv as { ok: boolean; value?: string; error?: string };
@@ -264,7 +281,11 @@ async function putBlob(
   if (!res.ok) throw new Error(`storage put failed: ${res.error ?? "unknown"}`);
 }
 
-async function saveBrokerKey(sdk: DicodeSdk, storageTask: string, pubkeyB64: string): Promise<void> {
+async function saveBrokerKey(
+  sdk: DicodeSdk,
+  storageTask: string,
+  pubkeyB64: string,
+): Promise<void> {
   const pt = new TextEncoder().encode(pubkeyB64);
   const ct = await sdk.dicode.crypto.encrypt(BROKER_KEY_CTX, pt);
   await putBlob(sdk, storageTask, BROKER_KEY_KEY, ct);

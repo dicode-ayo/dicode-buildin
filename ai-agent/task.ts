@@ -18,7 +18,12 @@
 //     ends it.
 import OpenAI from "npm:openai@4";
 import type { Dicode, DicodeSdk, Output } from "../sdk.ts";
-import { chatStart, chatTurn, decideEntryMode, resolveSessionId } from "../ai-agent-core/chat.ts";
+import {
+  chatStart,
+  chatTurn,
+  decideEntryMode,
+  resolveSessionId,
+} from "../ai-agent-core/chat.ts";
 
 type Role = "system" | "user" | "assistant" | "tool";
 
@@ -41,7 +46,9 @@ interface TaskSummary {
   id: string;
   name: string;
   description?: string;
-  params?: Array<{ name: string; type?: string; description?: string; required?: boolean }>;
+  params?: Array<
+    { name: string; type?: string; description?: string; required?: boolean }
+  >;
 }
 
 // Rough token estimate (chars / 4) — good enough for deciding when to compact.
@@ -71,7 +78,9 @@ function parsePositiveInt(raw: string | null, name: string): number {
   const n = Number(raw);
   if (!Number.isFinite(n) || n <= 0 || Math.floor(n) !== n) {
     throw new Error(
-      `ai-agent: param ${name} must be a positive integer, got ${JSON.stringify(raw)}`,
+      `ai-agent: param ${name} must be a positive integer, got ${
+        JSON.stringify(raw)
+      }`,
     );
   }
   return n;
@@ -85,7 +94,9 @@ function parseTemperature(raw: string | null): number {
   const n = raw === null || raw === "" ? 0 : Number(raw);
   if (!Number.isFinite(n) || n < 0 || n > 2) {
     throw new Error(
-      `ai-agent: param temperature must be a number between 0 and 2, got ${JSON.stringify(raw)}`,
+      `ai-agent: param temperature must be a number between 0 and 2, got ${
+        JSON.stringify(raw)
+      }`,
     );
   }
   return n;
@@ -100,7 +111,9 @@ function parseSkillsMode(raw: string | null): SkillsMode {
   const v = (raw ?? "").trim().toLowerCase() || "index";
   if (v !== "index" && v !== "eager") {
     throw new Error(
-      `ai-agent: param skills_mode must be "index" or "eager", got ${JSON.stringify(raw)}`,
+      `ai-agent: param skills_mode must be "index" or "eager", got ${
+        JSON.stringify(raw)
+      }`,
     );
   }
   return v;
@@ -175,7 +188,11 @@ interface BuiltinTool {
   name: string;
   description: string;
   parameters: Record<string, unknown>;
-  run(dicode: Dicode, args: Record<string, unknown>, cfg: BuiltinConfig): Promise<unknown>;
+  run(
+    dicode: Dicode,
+    args: Record<string, unknown>,
+    cfg: BuiltinConfig,
+  ): Promise<unknown>;
 }
 
 // A built-in offered only when the run's grant carries `cap`. Built-ins whose
@@ -187,13 +204,20 @@ interface CapBuiltinTool extends BuiltinTool {
 
 type SchemaProps = Record<string, Record<string, unknown>>;
 
-function objectSchema(properties: SchemaProps, required: string[]): Record<string, unknown> {
+function objectSchema(
+  properties: SchemaProps,
+  required: string[],
+): Record<string, unknown> {
   return { type: "object", properties, required, additionalProperties: false };
 }
 
 // Tool arguments arrive as whatever JSON the model emitted, so each accessor
 // coerces rather than trusting the declared schema.
-function argStr(args: Record<string, unknown>, key: string, fallback = ""): string {
+function argStr(
+  args: Record<string, unknown>,
+  key: string,
+  fallback = "",
+): string {
   const v = args[key];
   if (v === undefined || v === null) return fallback;
   return typeof v === "string" ? v : String(v);
@@ -206,12 +230,20 @@ function argBool(args: Record<string, unknown>, key: string): boolean {
 
 function argStrList(args: Record<string, unknown>, key: string): string[] {
   const v = args[key];
-  if (Array.isArray(v)) return v.map((e) => (typeof e === "string" ? e : String(e)));
-  if (typeof v === "string" && v) return v.split(",").map((e) => e.trim()).filter(Boolean);
+  if (Array.isArray(v)) {
+    return v.map((e) => (typeof e === "string" ? e : String(e)));
+  }
+  if (typeof v === "string" && v) {
+    return v.split(",").map((e) => e.trim()).filter(Boolean);
+  }
   return [];
 }
 
-function argLimit(args: Record<string, unknown>, key: string, fallback: number): number {
+function argLimit(
+  args: Record<string, unknown>,
+  key: string,
+  fallback: number,
+): number {
   const n = Number(args[key]);
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
 }
@@ -234,11 +266,19 @@ const BUILTIN_TOOLS: CapBuiltinTool[] = [
       "Fetch recent runs of a task — status, timing and output — newest first. " +
       "Use it to see how a task behaved before changing it.",
     parameters: objectSchema({
-      task_id: { type: "string", description: "Namespaced task id, e.g. 'buildin/git-pr'." },
-      limit: { type: "integer", description: "How many runs to return (default 10)." },
+      task_id: {
+        type: "string",
+        description: "Namespaced task id, e.g. 'buildin/git-pr'.",
+      },
+      limit: {
+        type: "integer",
+        description: "How many runs to return (default 10).",
+      },
     }, ["task_id"]),
     run: (dicode, args) =>
-      dicode.get_runs(argStr(args, "task_id"), { limit: argLimit(args, "limit", 10) }),
+      dicode.get_runs(argStr(args, "task_id"), {
+        limit: argLimit(args, "limit", 10),
+      }),
   },
   {
     name: "dicode_test_task",
@@ -272,10 +312,23 @@ const BUILTIN_TOOLS: CapBuiltinTool[] = [
       "there, not in the live source. The clone belongs to this session; leave " +
       "dev mode when done, which removes it locally and keeps the remote branch.",
     parameters: objectSchema({
-      source: { type: "string", description: "Source name as it appears in dicode.yaml." },
-      enabled: { type: "boolean", description: "true to enter dev mode, false to leave it." },
-      branch: { type: "string", description: "Branch to check out in the clone." },
-      base: { type: "string", description: "Branch to fork from when `branch` does not exist remotely." },
+      source: {
+        type: "string",
+        description: "Source name as it appears in dicode.yaml.",
+      },
+      enabled: {
+        type: "boolean",
+        description: "true to enter dev mode, false to leave it.",
+      },
+      branch: {
+        type: "string",
+        description: "Branch to check out in the clone.",
+      },
+      base: {
+        type: "string",
+        description:
+          "Branch to fork from when `branch` does not exist remotely.",
+      },
     }, ["source", "enabled"]),
     // Clone mode only. run_id names the clone directory and is fixed to this run
     // so two sessions cannot collide on one clone, and so leaving dev mode
@@ -298,7 +351,10 @@ const BUILTIN_TOOLS: CapBuiltinTool[] = [
       "redaction removed. Reason from the logs alone when a field you need is " +
       "listed as redacted — the value is gone, not hidden.",
     parameters: objectSchema({
-      run_id: { type: "string", description: "Id of the run whose input to read." },
+      run_id: {
+        type: "string",
+        description: "Id of the run whose input to read.",
+      },
     }, ["run_id"]),
     run: (dicode, args) => dicode.runs.get_input(argStr(args, "run_id")),
   },
@@ -309,7 +365,10 @@ const BUILTIN_TOOLS: CapBuiltinTool[] = [
       "Exempt a run's stored input from retention sweeps so it survives while " +
       "you work on it. Unpin it when you are done.",
     parameters: objectSchema({
-      run_id: { type: "string", description: "Id of the run whose input to pin." },
+      run_id: {
+        type: "string",
+        description: "Id of the run whose input to pin.",
+      },
     }, ["run_id"]),
     run: (dicode, args) => dicode.runs.pin_input(argStr(args, "run_id")),
   },
@@ -318,7 +377,10 @@ const BUILTIN_TOOLS: CapBuiltinTool[] = [
     cap: "runs.unpin_input",
     description: "Return a pinned run input to normal retention.",
     parameters: objectSchema({
-      run_id: { type: "string", description: "Id of the run whose input to unpin." },
+      run_id: {
+        type: "string",
+        description: "Id of the run whose input to unpin.",
+      },
     }, ["run_id"]),
     run: (dicode, args) => dicode.runs.unpin_input(argStr(args, "run_id")),
   },
@@ -331,10 +393,17 @@ const BUILTIN_TOOLS: CapBuiltinTool[] = [
       "replay is a fresh run: poll it with dicode_get_runs for its outcome.",
     parameters: objectSchema({
       run_id: { type: "string", description: "Id of the run to replay." },
-      task_id: { type: "string", description: "Retarget the replay at a different task. Omit to replay the run's own task." },
+      task_id: {
+        type: "string",
+        description:
+          "Retarget the replay at a different task. Omit to replay the run's own task.",
+      },
     }, ["run_id"]),
     run: (dicode, args) =>
-      dicode.runs.replay(argStr(args, "run_id"), argStr(args, "task_id") || undefined),
+      dicode.runs.replay(
+        argStr(args, "run_id"),
+        argStr(args, "task_id") || undefined,
+      ),
   },
   {
     name: "dicode_git_commit_push",
@@ -344,13 +413,34 @@ const BUILTIN_TOOLS: CapBuiltinTool[] = [
       "returning the commit hash. The branch must start with the prefix this " +
       "agent is configured to push under; main and master cannot be pushed to.",
     parameters: objectSchema({
-      source_id: { type: "string", description: "Source name as it appears in dicode.yaml." },
+      source_id: {
+        type: "string",
+        description: "Source name as it appears in dicode.yaml.",
+      },
       message: { type: "string", description: "Commit message." },
-      branch: { type: "string", description: "Branch to push to. Must start with the agent's configured branch prefix." },
-      files: { type: "array", items: { type: "string" }, description: "Paths to stage. Omit to stage everything changed." },
-      author_name: { type: "string", description: "Commit author name. Defaults to this agent." },
-      author_email: { type: "string", description: "Commit author email. Defaults to this agent." },
-      auth_token_env: { type: "string", description: "Env var holding the push token. Must be declared in this task's permissions.env." },
+      branch: {
+        type: "string",
+        description:
+          "Branch to push to. Must start with the agent's configured branch prefix.",
+      },
+      files: {
+        type: "array",
+        items: { type: "string" },
+        description: "Paths to stage. Omit to stage everything changed.",
+      },
+      author_name: {
+        type: "string",
+        description: "Commit author name. Defaults to this agent.",
+      },
+      author_email: {
+        type: "string",
+        description: "Commit author email. Defaults to this agent.",
+      },
+      auth_token_env: {
+        type: "string",
+        description:
+          "Env var holding the push token. Must be declared in this task's permissions.env.",
+      },
     }, ["source_id", "message", "branch"]),
     // allow_main is withheld: it is a per-call branch-protection bypass, not a
     // capability, and the branch to protect is not the caller's decision.
@@ -378,10 +468,10 @@ function grantedBuiltins(caps: string[] | undefined): CapBuiltinTool[] {
 
 interface CompactionConfig {
   maxHistoryTokens: number; // trigger threshold (estimated tokens)
-  keepTurns: number;        // last N turns kept verbatim; older turns get summarized
+  keepTurns: number; // last N turns kept verbatim; older turns get summarized
   summaryMaxTokens: number; // max_tokens budget for the summary call
-  model: string;            // model used to generate the summary
-  temperature: number;      // sampling temperature for the summary call
+  model: string; // model used to generate the summary
+  temperature: number; // sampling temperature for the summary call
 }
 
 // Strip summarized turns and replace with a single system "summary" entry.
@@ -390,7 +480,9 @@ async function compactIfNeeded(
   cfg: CompactionConfig,
   client: OpenAI,
 ): Promise<void> {
-  if (estimateTokens(session.messages, session.summary) <= cfg.maxHistoryTokens) return;
+  if (
+    estimateTokens(session.messages, session.summary) <= cfg.maxHistoryTokens
+  ) return;
 
   if (session.messages.length <= cfg.keepTurns) {
     // Budget already exceeded but we have nothing to compact — a single
@@ -398,7 +490,9 @@ async function compactIfNeeded(
     // can diagnose; the next API call will likely fail with a context
     // length error, which is the right signal to the caller.
     console.warn(
-      `ai-agent: history over budget (~${estimateTokens(session.messages, session.summary)} tokens > ${cfg.maxHistoryTokens}) ` +
+      `ai-agent: history over budget (~${
+        estimateTokens(session.messages, session.summary)
+      } tokens > ${cfg.maxHistoryTokens}) ` +
         `but only ${session.messages.length} turns present; skipping compaction. ` +
         `Consider raising max_history_tokens or splitting the prompt.`,
     );
@@ -481,7 +575,11 @@ function frontmatterValue(block: string, key: string): string {
     // A lone block indicator ("|", ">-", …) means the value starts on the next
     // line; anything else on that line is the value itself.
     const parts = [/^[>|][-+0-9]*$/.test(m[1].trim()) ? "" : m[1]];
-    for (let j = i + 1; j < lines.length && !/^[A-Za-z_][\w.\-]*[^\S\r\n]*:/.test(lines[j]); j++) {
+    for (
+      let j = i + 1;
+      j < lines.length && !/^[A-Za-z_][\w.\-]*[^\S\r\n]*:/.test(lines[j]);
+      j++
+    ) {
       parts.push(lines[j].trim());
     }
     return parts.join(" ").trim();
@@ -502,19 +600,30 @@ function firstProse(body: string): string {
 function parseSkill(name: string, text: string): Skill {
   const m = FRONTMATTER_RE.exec(text);
   const body = (m ? text.slice(m[0].length) : text).trim();
-  const description = (m ? frontmatterValue(m[1], "description") : "") || firstProse(body);
+  const description = (m ? frontmatterValue(m[1], "description") : "") ||
+    firstProse(body);
   return { name, description, body };
 }
 
-async function loadSkills(skillsDir: string, names: string[]): Promise<Skill[]> {
+async function loadSkills(
+  skillsDir: string,
+  names: string[],
+): Promise<Skill[]> {
   if (names.length === 0) return [];
   if (!skillsDir) {
     // Loud: a request for skills with no directory configured is almost
     // certainly a misconfiguration, not a user expectation.
     console.error(
-      `ai-agent: skills requested but skills_dir is empty; nothing loaded: ${names.join(", ")}`,
+      `ai-agent: skills requested but skills_dir is empty; nothing loaded: ${
+        names.join(", ")
+      }`,
     );
-    return names.map((name) => ({ name, description: "", body: "", error: "skills_dir is empty" }));
+    return names.map((name) => ({
+      name,
+      description: "",
+      body: "",
+      error: "skills_dir is empty",
+    }));
   }
   const base = skillsDir.endsWith("/") ? skillsDir : skillsDir + "/";
   const skills: Skill[] = [];
@@ -523,8 +632,15 @@ async function loadSkills(skillsDir: string, names: string[]): Promise<Skill[]> 
     // traversal sequences, empty strings, and anything starting with '.'
     // (blocks `.env`-style probes).
     if (!SKILL_NAME_RE.test(name) || name.includes("..")) {
-      console.error(`ai-agent: rejected invalid skill name ${JSON.stringify(name)}`);
-      skills.push({ name, description: "", body: "", error: "invalid skill name" });
+      console.error(
+        `ai-agent: rejected invalid skill name ${JSON.stringify(name)}`,
+      );
+      skills.push({
+        name,
+        description: "",
+        body: "",
+        error: "invalid skill name",
+      });
       continue;
     }
     const path = `${base}${name}.md`;
@@ -534,12 +650,16 @@ async function loadSkills(skillsDir: string, names: string[]): Promise<Skill[]> 
       // Log the full path so operators can distinguish a user typo
       // (wrong name) from a permissions/path misconfig (wrong skills_dir).
       const msg = e instanceof Error ? e.message : String(e);
-      console.error(`ai-agent: failed to load skill ${name} from ${path}: ${msg}`);
+      console.error(
+        `ai-agent: failed to load skill ${name} from ${path}: ${msg}`,
+      );
       // The reason reaches the model, so it says which of the two it was
       // without the host path the raw error carries. Host paths are not the
       // model's to see — the same reason sources.list strips them and
       // set_dev_mode withholds local_path.
-      const reason = e instanceof Deno.errors.NotFound ? "no such skill file" : "unreadable";
+      const reason = e instanceof Deno.errors.NotFound
+        ? "no such skill file"
+        : "unreadable";
       skills.push({ name, description: "", body: "", error: reason });
     }
   }
@@ -549,7 +669,9 @@ async function loadSkills(skillsDir: string, names: string[]): Promise<Skill[]> 
 // Every body inline, the shape skills_mode "eager" keeps.
 function skillsEagerBlob(skills: Skill[]): string {
   return skills
-    .map((s) => `# skill:${s.name}\n${s.error ? `(not loaded: ${s.error})` : s.body}`)
+    .map((s) =>
+      `# skill:${s.name}\n${s.error ? `(not loaded: ${s.error})` : s.body}`
+    )
     .join("\n\n");
 }
 
@@ -559,7 +681,9 @@ const READ_SKILL_TOOL_NAME = "dicode_read_skill";
 function skillsIndexBlob(skills: Skill[]): string {
   const lines = skills.map((s) =>
     `- ${s.name} — ${
-      s.error ? `(not loaded: ${s.error})` : clip(s.description || "(no description)", SKILL_DESCRIPTION_MAX)
+      s.error
+        ? `(not loaded: ${s.error})`
+        : clip(s.description || "(no description)", SKILL_DESCRIPTION_MAX)
     }`
   );
   return [
@@ -592,15 +716,29 @@ const READ_SKILL_TOOL: BuiltinTool = {
     "system prompt. Skills carry the schemas and mandatory workflows for this " +
     "daemon; read the relevant one before writing files or calling other tools.",
   parameters: objectSchema({
-    name: { type: "string", description: "Skill name exactly as listed under '# Skills'." },
+    name: {
+      type: "string",
+      description: "Skill name exactly as listed under '# Skills'.",
+    },
   }, ["name"]),
   // deno-lint-ignore require-await
   run: async (_dicode, args, cfg) => {
     const name = argStr(args, "name");
     const skill = cfg.skills[name];
-    if (!skill) return { error: `unknown skill: ${name}`, available: Object.keys(cfg.skills) };
-    if (skill.error) return { error: `skill ${name} not loaded: ${skill.error}` };
-    return { name: skill.name, description: skill.description, body: skill.body };
+    if (!skill) {
+      return {
+        error: `unknown skill: ${name}`,
+        available: Object.keys(cfg.skills),
+      };
+    }
+    if (skill.error) {
+      return { error: `skill ${name} not loaded: ${skill.error}` };
+    }
+    return {
+      name: skill.name,
+      description: skill.description,
+      body: skill.body,
+    };
   },
 };
 
@@ -688,12 +826,27 @@ async function resolveAgentRuntime(
   // `while(0 < NaN)` never runs, `estimateTokens <= NaN` never compacts).
   // Validate explicitly so a bad param surfaces as a loud error instead of
   // an empty reply or runaway history.
-  const maxHistoryTokens = parsePositiveInt(await params.get("max_history_tokens"), "max_history_tokens");
-  const maxToolIterations = parsePositiveInt(await params.get("max_tool_iterations"), "max_tool_iterations");
-  const responseMaxTokens = parsePositiveInt(await params.get("response_max_tokens"), "response_max_tokens");
-  const compactionMaxTokens = parsePositiveInt(await params.get("compaction_max_tokens"), "compaction_max_tokens");
+  const maxHistoryTokens = parsePositiveInt(
+    await params.get("max_history_tokens"),
+    "max_history_tokens",
+  );
+  const maxToolIterations = parsePositiveInt(
+    await params.get("max_tool_iterations"),
+    "max_tool_iterations",
+  );
+  const responseMaxTokens = parsePositiveInt(
+    await params.get("response_max_tokens"),
+    "response_max_tokens",
+  );
+  const compactionMaxTokens = parsePositiveInt(
+    await params.get("compaction_max_tokens"),
+    "compaction_max_tokens",
+  );
   const temperature = parseTemperature(await params.get("temperature"));
-  const compactionKeepTurns = parsePositiveInt(await params.get("compaction_keep_turns"), "compaction_keep_turns");
+  const compactionKeepTurns = parsePositiveInt(
+    await params.get("compaction_keep_turns"),
+    "compaction_keep_turns",
+  );
 
   const missing: string[] = [];
   if (!model) missing.push("model");
@@ -786,7 +939,11 @@ async function resolveAgentRuntime(
     builtins[b.name] = b;
     tools.push({
       type: "function" as const,
-      function: { name: b.name, description: b.description, parameters: b.parameters },
+      function: {
+        name: b.name,
+        description: b.description,
+        parameters: b.parameters,
+      },
     });
   }
 
@@ -810,7 +967,9 @@ async function resolveAgentRuntime(
   console.log(
     `ai-agent[${new Date().toISOString()}]: task=${dicode.task_id} ` +
       `run=${dicode.run_id.slice(0, 8)} model=${model} baseURL=${baseURL} ` +
-      `task_tools=${filtered.length} builtins=${Object.keys(builtins).length} ` +
+      `task_tools=${filtered.length} builtins=${
+        Object.keys(builtins).length
+      } ` +
       `skills=${skills.length} skills_mode=${skillsMode} ` +
       `skills_chars=${skillsBlob.length}`,
   );
@@ -854,7 +1013,21 @@ async function runAgentTurn(
   rt: AgentRuntime,
   dicode: Dicode,
 ): Promise<string> {
-  const { client, model, systemPromptBase, skillsBlob, skillsMode, tools, toolNameToTaskId, builtins, builtinCfg, compactionCfg, maxToolIterations, responseMaxTokens, temperature } = rt;
+  const {
+    client,
+    model,
+    systemPromptBase,
+    skillsBlob,
+    skillsMode,
+    tools,
+    toolNameToTaskId,
+    builtins,
+    builtinCfg,
+    compactionCfg,
+    maxToolIterations,
+    responseMaxTokens,
+    temperature,
+  } = rt;
 
   // Append user turn
   session.messages.push({ role: "user", content: message });
@@ -872,7 +1045,9 @@ async function runAgentTurn(
         await compactIfNeeded(session, compactionCfg, client);
       } catch (e) {
         console.error(
-          `ai-agent: compaction failed, continuing uncompacted: ${e instanceof Error ? e.message : String(e)}`,
+          `ai-agent: compaction failed, continuing uncompacted: ${
+            e instanceof Error ? e.message : String(e)
+          }`,
         );
       }
 
@@ -886,7 +1061,9 @@ async function runAgentTurn(
       const parts: string[] = skillsMode === "index"
         ? [skillsBlob, systemPromptBase]
         : [systemPromptBase, skillsBlob];
-      if (session.summary) parts.push(`Prior conversation summary:\n${session.summary}`);
+      if (session.summary) {
+        parts.push(`Prior conversation summary:\n${session.summary}`);
+      }
       const systemPrompt = parts.filter(Boolean).join("\n\n");
 
       // deno-lint-ignore no-explicit-any
@@ -931,7 +1108,9 @@ async function runAgentTurn(
             }
           }
           console.error(
-            `ai-agent: upstream ${err.status} — body=${JSON.stringify(err.error)} ` +
+            `ai-agent: upstream ${err.status} — body=${
+              JSON.stringify(err.error)
+            } ` +
               `rlHeaders=${JSON.stringify(rlHeaders)}`,
           );
         }
@@ -962,7 +1141,9 @@ async function runAgentTurn(
         const taskId = toolNameToTaskId[call.function.name];
         let result: unknown;
         if (!builtin && !taskId) {
-          console.error(`ai-agent: unknown tool '${call.function.name}' requested`);
+          console.error(
+            `ai-agent: unknown tool '${call.function.name}' requested`,
+          );
           result = { error: `unknown tool: ${call.function.name}` };
         } else {
           const label = builtin ? builtin.name : taskId;
@@ -982,7 +1163,9 @@ async function runAgentTurn(
             }
           } catch (e) {
             const msg = e instanceof Error ? e.message : String(e);
-            console.error(`ai-agent: tool call failed tool=${label} call=${call.id}: ${msg}`);
+            console.error(
+              `ai-agent: tool call failed tool=${label} call=${call.id}: ${msg}`,
+            );
             result = { error: msg };
           }
         }
@@ -1010,7 +1193,11 @@ export default async function main({ params, dicode, output }: DicodeSdk) {
     // Blank prompt on a fresh run → open the chat loop. The conversation rides
     // in the suspend `state` blob (resume_state), seeded empty; steps.turn runs
     // each turn. A blank message ends it.
-    await chatStart(dicode, { messages: [] }, "Message the agent — leave blank to end.");
+    await chatStart(
+      dicode,
+      { messages: [] },
+      "Message the agent — leave blank to end.",
+    );
     return; // unreachable — suspend() never returns
   }
 
@@ -1034,7 +1221,11 @@ async function oneShotTurn(
   // continuation handle), so validate it the same way claude-cli validates its
   // carried session/chat ids — an off-shape value is treated as absent rather
   // than passed through.
-  const sessionId = resolveSessionId(await params.get("session_id") ?? undefined, "ai-agent: session_id", { autoMint: true });
+  const sessionId = resolveSessionId(
+    await params.get("session_id") ?? undefined,
+    "ai-agent: session_id",
+    { autoMint: true },
+  );
 
   // Tag the run so the WebUI collapses every turn of a single chat into
   // one expandable row in the run list (#112). Tool-call children are
@@ -1053,7 +1244,9 @@ async function oneShotTurn(
     // makes the engine record a failed run instead of a green one.
     const response: NotConfiguredResponse = {
       session_id: sessionId,
-      reply: `not configured — missing ${resolved.missing.join(", ")}. ${resolved.hint}`,
+      reply: `not configured — missing ${
+        resolved.missing.join(", ")
+      }. ${resolved.hint}`,
       error: "not_configured",
       missing: resolved.missing,
       hint: resolved.hint,
@@ -1094,17 +1287,34 @@ export const steps = {
     return chatTurn(ctx, async ({ message, state }) => {
       const resolved = await resolveAgentRuntime(params, dicode);
       if (!resolved.ok) {
-        return { ok: false, error: "not_configured", missing: resolved.missing, hint: resolved.hint };
+        return {
+          ok: false,
+          error: "not_configured",
+          missing: resolved.missing,
+          hint: resolved.hint,
+        };
       }
-      const carried = (state ?? {}) as { messages?: StoredMessage[]; summary?: string };
+      const carried = (state ?? {}) as {
+        messages?: StoredMessage[];
+        summary?: string;
+      };
       const session: SessionState = {
         messages: carried.messages ?? [],
         summary: carried.summary,
         created_at: Date.now(),
         updated_at: Date.now(),
       };
-      const reply = await runAgentTurn(session, message, resolved.runtime, dicode);
-      return { ok: true, reply, state: { messages: session.messages, summary: session.summary } };
+      const reply = await runAgentTurn(
+        session,
+        message,
+        resolved.runtime,
+        dicode,
+      );
+      return {
+        ok: true,
+        reply,
+        state: { messages: session.messages, summary: session.summary },
+      };
     });
   },
 };

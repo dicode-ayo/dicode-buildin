@@ -97,7 +97,7 @@ class DcSecurity extends LitElement {
   // there's no XSS surface either. If the key alphabet ever widens,
   // revisit this and consider explicit shell-quoting.
   _claudeMcpAddCmd(rawKey) {
-    const url = window.location.origin + '/mcp';
+    const url = globalThis.location.origin + '/mcp';
     return `claude mcp add --transport http dicode ${url} --header 'Authorization: Bearer ${rawKey}'`;
   }
 

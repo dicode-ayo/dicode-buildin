@@ -84,11 +84,13 @@ async function listDir(dir: string): Promise<Deno.DirEntry[]> {
 // sweepDataDirTmp removes per-invocation scratch directories under
 // ${DATADIR}/tmp/<task>/<uuid>/ that are older than DIR_TTL_MS.
 // Returns counters for logging.
-async function sweepDataDirTmp(): Promise<{ scanned: number; deleted: number; skipped: number }> {
+async function sweepDataDirTmp(): Promise<
+  { scanned: number; deleted: number; skipped: number }
+> {
   // `||` (not `??`) so a declared-but-unset entry arriving as "" falls back
   // rather than resolving root to "/tmp" and sweeping the whole system temp.
   const dataDir = Deno.env.get("DICODE_DATADIR") ||
-                  `${Deno.env.get("HOME") ?? "/root"}/.dicode`;
+    `${Deno.env.get("HOME") ?? "/root"}/.dicode`;
   const root = `${dataDir}/tmp`;
   const cutoff = Date.now() - DIR_TTL_MS;
   let scanned = 0, deleted = 0, skipped = 0;
@@ -152,13 +154,13 @@ export default async function main({ dicode }: DicodeSdk) {
   const dirSweep = await sweepDataDirTmp();
 
   console.log("temp-cleanup", {
-    files:   { scanned, deleted, skipped },
-    dirs:    dirSweep,
+    files: { scanned, deleted, skipped },
+    dirs: dirSweep,
     running: running.size,
   });
   return {
-    files:   { scanned, deleted, skipped },
-    dirs:    dirSweep,
+    files: { scanned, deleted, skipped },
+    dirs: dirSweep,
     running: running.size,
   };
 }

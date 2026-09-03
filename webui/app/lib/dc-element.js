@@ -1,4 +1,4 @@
-import { LitElement } from 'https://esm.sh/lit@3';
+import { LitElement } from "https://esm.sh/lit@3";
 
 // DcElement — Stage 2 (#93) plumbing: a thin base class for the app's
 // light-DOM page components. It formalizes the `_loading`/`_error` +
@@ -73,7 +73,9 @@ export class DcElement extends LitElement {
     this._loading = true;
     this._error = null;
     try {
-      return typeof promiseOrFn === 'function' ? await promiseOrFn() : await promiseOrFn;
+      return typeof promiseOrFn === "function"
+        ? await promiseOrFn()
+        : await promiseOrFn;
     } catch (e) {
       this._error = e?.message || String(e);
       return undefined;

@@ -17,16 +17,16 @@
 // dicode.run_task to the storage task (which only ever sees ciphertexts).
 
 import {
-  Identity,
   decryptTokenEnvelope,
+  Identity,
   type StoredIdentity,
 } from "npm:dicode-relay@0.2.1/client";
 
-const IDENTITY_CTX   = "dicode/relay-identity/v1";
+const IDENTITY_CTX = "dicode/relay-identity/v1";
 const BROKER_KEY_CTX = "dicode/relay-broker-key/v1";
-const PENDING_CTX    = "dicode/oauth-pending/v1";
-const PREFIX         = "relay/";
-const ID_KEY         = "relay/identity-v1";
+const PENDING_CTX = "dicode/oauth-pending/v1";
+const PREFIX = "relay/";
+const ID_KEY = "relay/identity-v1";
 const BROKER_KEY_KEY = "relay/broker-key-v1";
 
 function b64decode(s: string): Uint8Array {
@@ -48,9 +48,10 @@ export default async function main({ input, dicode }: DicodeSdk) {
     throw new Error("invalid OAuth token delivery envelope");
   }
 
-  const datadir     = Deno.env.get("DICODE_DATADIR") ?? ".";
-  const root        = `${datadir}/relay-store`;
-  const storageTask = Deno.env.get("DICODE_STORAGE_TASK") ?? "buildin/local-storage";
+  const datadir = Deno.env.get("DICODE_DATADIR") ?? ".";
+  const root = `${datadir}/relay-store`;
+  const storageTask = Deno.env.get("DICODE_STORAGE_TASK") ??
+    "buildin/local-storage";
 
   // 1. Load identity.
   const identity = await loadIdentity(dicode, storageTask, root);
@@ -59,14 +60,21 @@ export default async function main({ input, dicode }: DicodeSdk) {
   //    task from the welcome frame over the TLS-authenticated channel).
   const brokerPubkey = await loadBrokerKey(dicode, storageTask, root);
   if (!brokerPubkey) {
-    throw new Error("broker key not yet received — has the relay-client connected since upgrading to 0.2.0?");
+    throw new Error(
+      "broker key not yet received — has the relay-client connected since upgrading to 0.2.0?",
+    );
   }
 
   // 3. Verify broker_sig + ECIES-decrypt. Throws if either fails.
   const tokens = await decryptTokenEnvelope(envelope, identity, brokerPubkey);
 
   // 4. Resolve provider from the pending-session record written by auth-start.
-  const provider = await resolveProvider(dicode, storageTask, root, envelope.session_id);
+  const provider = await resolveProvider(
+    dicode,
+    storageTask,
+    root,
+    envelope.session_id,
+  );
 
   // 5. Write each token field to secrets. Provider-specific naming follows
   //    the convention from the legacy dicode.oauth.store_token primitive:
@@ -102,7 +110,9 @@ export default async function main({ input, dicode }: DicodeSdk) {
 
 // dicode.run_task returns a RunResult envelope: { runID, status, returnValue }.
 // Unwrap it to get the storage task's actual return value.
-function unwrapRunResult(raw: unknown): { ok: boolean; value?: string; error?: string } {
+function unwrapRunResult(
+  raw: unknown,
+): { ok: boolean; value?: string; error?: string } {
   const envelope = raw as { returnValue?: unknown };
   const rv = envelope?.returnValue ?? raw;
   return rv as { ok: boolean; value?: string; error?: string };
@@ -113,11 +123,18 @@ async function loadIdentity(
   storageTask: string,
   root: string,
 ): Promise<Identity> {
-  const res = unwrapRunResult(await dicode.run_task(storageTask, {
-    op: "get", key: ID_KEY, prefix: PREFIX, root,
-  }));
+  const res = unwrapRunResult(
+    await dicode.run_task(storageTask, {
+      op: "get",
+      key: ID_KEY,
+      prefix: PREFIX,
+      root,
+    }),
+  );
   if (!res.ok || !res.value) {
-    throw new Error("relay identity not found — has the relay-client task started?");
+    throw new Error(
+      "relay identity not found — has the relay-client task started?",
+    );
   }
   const ct = b64decode(res.value);
   const pt = await dicode.crypto.decrypt(IDENTITY_CTX, ct);
@@ -130,9 +147,14 @@ async function loadBrokerKey(
   storageTask: string,
   root: string,
 ): Promise<string | null> {
-  const res = unwrapRunResult(await dicode.run_task(storageTask, {
-    op: "get", key: BROKER_KEY_KEY, prefix: PREFIX, root,
-  }));
+  const res = unwrapRunResult(
+    await dicode.run_task(storageTask, {
+      op: "get",
+      key: BROKER_KEY_KEY,
+      prefix: PREFIX,
+      root,
+    }),
+  );
   if (!res.ok || !res.value) return null;
   const ct = b64decode(res.value);
   const pt = await dicode.crypto.decrypt(BROKER_KEY_CTX, ct);
@@ -145,14 +167,18 @@ async function resolveProvider(
   root: string,
   sessionId: string,
 ): Promise<string> {
-  const res = unwrapRunResult(await dicode.run_task(storageTask, {
-    op:     "get",
-    key:    `oauth-pending/${sessionId}`,
-    prefix: "oauth-pending/",
-    root,
-  }));
+  const res = unwrapRunResult(
+    await dicode.run_task(storageTask, {
+      op: "get",
+      key: `oauth-pending/${sessionId}`,
+      prefix: "oauth-pending/",
+      root,
+    }),
+  );
   if (!res.ok || !res.value) {
-    throw new Error("oauth-pending record not found — session expired or never started");
+    throw new Error(
+      "oauth-pending record not found — session expired or never started",
+    );
   }
   const ct = b64decode(res.value);
   const pt = await dicode.crypto.decrypt(PENDING_CTX, ct);

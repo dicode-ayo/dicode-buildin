@@ -1,4 +1,4 @@
-import { LitElement, html, css } from 'https://esm.sh/lit@3';
+import { css, html, LitElement } from "https://esm.sh/lit@3";
 
 // <dc-status-badge> — Stage 1 primitive (#93): a colored status pill,
 // generalizing the `<span class="badge badge-${status}">` pattern repeated
@@ -27,8 +27,14 @@ import { LitElement, html, css } from 'https://esm.sh/lit@3';
 // demo page's exhaustive example) can reuse it instead of hand-duplicating
 // it and drifting out of sync when a status is added here.
 export const KNOWN_STATUSES = new Set([
-  'success', 'failure', 'running', 'crashlooping',
-  'cancelled', 'manual', 'suspended', 'resumed',
+  "success",
+  "failure",
+  "running",
+  "crashlooping",
+  "cancelled",
+  "manual",
+  "suspended",
+  "resumed",
 ]);
 
 class DcStatusBadge extends LitElement {
@@ -37,10 +43,12 @@ class DcStatusBadge extends LitElement {
   };
 
   static styles = css`
-    :host { display: inline-block; }
+    :host {
+      display: inline-block;
+    }
     .badge {
       display: inline-block;
-      padding: .2em .6em;
+      padding: 0.2em 0.6em;
       border-radius: var(--dicode-radius-sm);
       font-size: var(--dicode-text-xs);
       font-weight: var(--dicode-font-semibold);
@@ -99,14 +107,16 @@ class DcStatusBadge extends LitElement {
 
   constructor() {
     super();
-    this.status = '';
+    this.status = "";
   }
 
   render() {
-    const v = this.status || '';
-    const cls = KNOWN_STATUSES.has(v) ? `badge-${v}` : '';
-    return html`<span class="badge ${cls}">${v || '—'}</span>`;
+    const v = this.status || "";
+    const cls = KNOWN_STATUSES.has(v) ? `badge-${v}` : "";
+    return html`
+      <span class="badge ${cls}">${v || "—"}</span>
+    `;
   }
 }
 
-customElements.define('dc-status-badge', DcStatusBadge);
+customElements.define("dc-status-badge", DcStatusBadge);

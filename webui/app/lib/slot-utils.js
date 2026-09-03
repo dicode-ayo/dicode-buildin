@@ -15,9 +15,9 @@
 // box around slotted content). Where the styling targets the slotted
 // elements themselves, `::slotted(*)` does the same job in CSS alone and
 // never matches whitespace either — see dc-empty-state.js.
-export function hasSlottedElement(host, slotName = '') {
+export function hasSlottedElement(host, slotName = "") {
   for (const el of host.children) {
-    if ((el.getAttribute('slot') || '') === slotName) return true;
+    if ((el.getAttribute("slot") || "") === slotName) return true;
   }
   return false;
 }

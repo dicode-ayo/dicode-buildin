@@ -164,7 +164,8 @@ async function listTasks(dicode: Dicode): Promise<TaskSummary[]> {
   // mcpContext: true signals the IPC server to filter to tasks with
   // mcp_exposed: true — so only explicitly opted-in tasks are discoverable
   // via the MCP endpoint.
-  return ((await dicode.list_tasks({ mcpContext: true })) as TaskSummary[]) ?? [];
+  return ((await dicode.list_tasks({ mcpContext: true })) as TaskSummary[]) ??
+    [];
 }
 
 function argStr(args: Record<string, unknown>, key: string): string {

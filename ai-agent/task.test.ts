@@ -14,6 +14,23 @@
  */
 import { setupHarness } from "../sdk-test.ts";
 import { isValidSessionId } from "../ai-agent-core/chat.ts";
+import type { DicodeGit, DicodeSources } from "../sdk.ts";
+
+// The mocks below take the SDK's own option shapes, so they track the real
+// signatures rather than restating them.
+type DevModeOpts = Parameters<DicodeSources["set_dev_mode"]>[1];
+type CommitPushOpts = Parameters<DicodeGit["commit_push"]>[1];
+
+// The envelope a terminal failure publishes before it throws. `missing` is
+// only present on the param-validation path.
+type FailureEnvelope = {
+  ok: boolean;
+  reply: string;
+  error?: string;
+  session_id?: string;
+  caller_context?: string;
+  missing?: string[];
+};
 await setupHarness(import.meta.url);
 
 // Loaded AFTER setupHarness patches globalThis.fetch — a static import would
@@ -30,7 +47,9 @@ const { default: main, steps } = await import("./task.ts") as {
 class SuspendSignal extends Error {}
 function recordSuspend(): Array<Record<string, unknown>> {
   const calls: Array<Record<string, unknown>> = [];
-  (dicode as Record<string, unknown>).suspend = (req: Record<string, unknown>) => {
+  (dicode as Record<string, unknown>).suspend = (
+    req: Record<string, unknown>,
+  ) => {
     calls.push(req);
     throw new SuspendSignal();
   };
@@ -41,8 +60,11 @@ function recordSuspend(): Array<Record<string, unknown>> {
 // the runner dispatches a resume. `output` defaults to a no-op json() stub —
 // callers that need to inspect what a terminal failure published pass their
 // own spy (see runFailing below).
-// deno-lint-ignore no-explicit-any
-function runTurnStep(input: unknown, state: unknown, output: Record<string, unknown> = { json: async () => {} }): Promise<any> {
+function runTurnStep(
+  input: unknown,
+  state: unknown,
+  output: Record<string, unknown> = { json: async () => {} },
+): Promise<Record<string, unknown>> {
   return steps.turn({
     params,
     kv,
@@ -61,10 +83,16 @@ function runTurnStep(input: unknown, state: unknown, output: Record<string, unkn
 // the non-zero exit — and then throws, which is what makes the engine record
 // a failed run instead of a green one carrying an error string as its reply.
 // Returns the published envelope and the thrown error.
-// deno-lint-ignore no-explicit-any
-async function runFailing(fn: (output: Record<string, unknown>) => Promise<unknown>): Promise<{ envelope: any; error: Error }> {
+async function runFailing(
+  fn: (output: Record<string, unknown>) => Promise<unknown>,
+): Promise<{ envelope: FailureEnvelope; error: Error }> {
   const published: unknown[] = [];
-  const output = { json: (v: unknown) => { published.push(v); return Promise.resolve(); } };
+  const output = {
+    json: (v: unknown) => {
+      published.push(v);
+      return Promise.resolve();
+    },
+  };
   let thrown: unknown;
   let returned = false;
   try {
@@ -74,10 +102,12 @@ async function runFailing(fn: (output: Record<string, unknown>) => Promise<unkno
     thrown = e;
   }
   if (returned) {
-    throw new Error("expected the failed turn to throw — a returned error envelope settles the run as a success");
+    throw new Error(
+      "expected the failed turn to throw — a returned error envelope settles the run as a success",
+    );
   }
   assert.equal(published.length, 1);
-  return { envelope: published[0], error: thrown as Error };
+  return { envelope: published[0] as FailureEnvelope, error: thrown as Error };
 }
 
 // Minimal OpenAI chat completion response body.
@@ -124,7 +154,14 @@ test("one-shot: not_configured turn publishes the envelope and throws instead of
   // exactly what WaitRunSettled, chained triggers and the dashboard would
   // read as "it worked". runFailing asserts it now throws instead.
   const { envelope, error } = await runFailing((output) =>
-    main({ params, kv, input: undefined, dicode, output, mcp: { list_tools: async () => [], call: async () => ({}) } })
+    main({
+      params,
+      kv,
+      input: undefined,
+      dicode,
+      output,
+      mcp: { list_tools: async () => [], call: async () => ({}) },
+    })
   );
 
   assert.equal(envelope.error, "not_configured");
@@ -135,8 +172,8 @@ test("one-shot: not_configured turn publishes the envelope and throws instead of
   assert.ok(envelope.caller_context);
   assert.ok(envelope.session_id);
   // Should list model and base_url as missing at minimum
-  assert.ok(envelope.missing.includes("model"));
-  assert.ok(envelope.missing.includes("base_url"));
+  assert.ok(envelope.missing?.includes("model"));
+  assert.ok(envelope.missing?.includes("base_url"));
   // The thrown message is what the engine records against the run — it must
   // carry the same detail the published envelope does, not a generic code.
   assert.equal(error.message, envelope.reply);
@@ -212,11 +249,17 @@ test("rejects a malformed session_id param; generates a fresh UUID instead of ec
 
   const result = await runTask();
 
-  assert.ok(isValidSessionId(result.session_id as string), `expected a fresh UUID, got ${result.session_id}`);
+  assert.ok(
+    isValidSessionId(result.session_id as string),
+    `expected a fresh UUID, got ${result.session_id}`,
+  );
 
   const calls = (dicode as Record<string, unknown>)._setGroupCalls as string[];
   assert.equal(calls.length, 1);
-  assert.ok(!calls[0].includes("passwd"), `malformed session_id leaked into set_group label: ${calls[0]}`);
+  assert.ok(
+    !calls[0].includes("passwd"),
+    `malformed session_id leaked into set_group label: ${calls[0]}`,
+  );
   assert.equal(calls[0], `chat:${result.session_id}`);
 });
 
@@ -271,7 +314,10 @@ test("blank prompt on a fresh run opens the chat loop (suspends to turn)", async
   assert.equal(calls.length, 1);
   assert.equal(calls[0].to, "turn");
   // `message` is intentionally NOT required so a blank line ends the chat.
-  assert.equal((calls[0].schema as Record<string, unknown>).required, undefined);
+  assert.equal(
+    (calls[0].schema as Record<string, unknown>).required,
+    undefined,
+  );
   // Conversation state rides in the suspend blob, seeded empty.
   assert.equal((calls[0].state as Record<string, unknown>).messages, []);
 });
@@ -301,9 +347,9 @@ test("self-id filter excludes only the exact task_id, not prefix matches", async
 
   dicode.task_id = "buildin/ai-agent";
   dicode.list_tasks = async () => [
-    { id: "buildin/ai-agent" },       // self — must be excluded
+    { id: "buildin/ai-agent" }, // self — must be excluded
     { id: "buildin/ai-agent-helper" }, // looks like self, must NOT be excluded
-    { id: "team/ai-agent" },           // matches basename, must NOT be excluded
+    { id: "team/ai-agent" }, // matches basename, must NOT be excluded
     { id: "other/something" },
   ];
 
@@ -315,17 +361,32 @@ test("self-id filter excludes only the exact task_id, not prefix matches", async
   await runTask();
 
   // Capture the tools array the agent sent to the model on the last call.
-  const sent = http.lastRequestBody("POST", "http://localhost:11434/v1/chat/completions");
+  const sent = http.lastRequestBody(
+    "POST",
+    "http://localhost:11434/v1/chat/completions",
+  );
   const toolNames: string[] = (sent.tools ?? []).map(
     (t: { function: { name: string } }) => t.function.name,
   );
 
   // Tool name mangling (pkg taskIdToToolName) replaces `/` with `_` and
   // leaves `-` alone: task_buildin_ai-agent-helper, not …_helper.
-  assert.ok(!toolNames.includes("task_buildin_ai-agent"), "self must be excluded");
-  assert.ok(toolNames.includes("task_buildin_ai-agent-helper"), "look-alike sibling must NOT be excluded");
-  assert.ok(toolNames.includes("task_team_ai-agent"), "name collision in a different namespace must NOT be excluded");
-  assert.ok(toolNames.includes("task_other_something"), "unrelated task must remain");
+  assert.ok(
+    !toolNames.includes("task_buildin_ai-agent"),
+    "self must be excluded",
+  );
+  assert.ok(
+    toolNames.includes("task_buildin_ai-agent-helper"),
+    "look-alike sibling must NOT be excluded",
+  );
+  assert.ok(
+    toolNames.includes("task_team_ai-agent"),
+    "name collision in a different namespace must NOT be excluded",
+  );
+  assert.ok(
+    toolNames.includes("task_other_something"),
+    "unrelated task must remain",
+  );
 });
 
 test("temperature reaches the model: the tool loop is not left at the provider's chat default", async () => {
@@ -345,7 +406,10 @@ test("temperature reaches the model: the tool loop is not left at the provider's
 
   await runTask();
 
-  const sent = http.lastRequestBody("POST", "http://localhost:11434/v1/chat/completions");
+  const sent = http.lastRequestBody(
+    "POST",
+    "http://localhost:11434/v1/chat/completions",
+  );
   assert.equal(sent.temperature, 0);
 });
 
@@ -364,7 +428,10 @@ test("a temperature outside 0-2 is refused rather than silently clamped", async 
       `error should name the offending param, got: ${e}`,
     );
   }
-  assert.ok(threw, "an out-of-range temperature must fail the run, not reach the provider");
+  assert.ok(
+    threw,
+    "an out-of-range temperature must fail the run, not reach the provider",
+  );
 });
 
 test("refuses to run when dicode.task_id is empty", async () => {
@@ -401,9 +468,14 @@ test("chat turn runs one OpenAI turn and suspends back with the reply", async ()
   assert.equal(calls.length, 1);
   assert.equal(calls[0].to, "turn");
   // The reply becomes the next prompt's banner.
-  assert.equal((calls[0].schema as Record<string, unknown>).description, "pong");
+  assert.equal(
+    (calls[0].schema as Record<string, unknown>).description,
+    "pong",
+  );
   // Cumulative conversation is carried forward in the suspend state (not KV).
-  const msgs = (calls[0].state as { messages: Array<{ role: string; content: string }> }).messages;
+  const msgs =
+    (calls[0].state as { messages: Array<{ role: string; content: string }> })
+      .messages;
   assert.equal(msgs[0].role, "user");
   assert.equal(msgs[0].content, "ping");
   assert.equal(msgs[msgs.length - 1].role, "assistant");
@@ -422,18 +494,37 @@ test("chat turn threads prior messages from the carried state", async () => {
   try {
     await runTurnStep(
       { message: "second message" },
-      { messages: [{ role: "user", content: "first message" }, { role: "assistant", content: "first reply" }] },
+      {
+        messages: [{ role: "user", content: "first message" }, {
+          role: "assistant",
+          content: "first reply",
+        }],
+      },
     );
   } catch (e) {
     if (!(e instanceof SuspendSignal)) throw e;
   }
 
   // The prior turns from state are replayed to the model on this turn.
-  const sent = http.lastRequestBody("POST", "http://localhost:11434/v1/chat/completions");
-  const contents: string[] = (sent.messages ?? []).map((m: { content: string }) => m.content);
-  assert.ok(contents.includes("first message"), "prior user turn must be replayed");
-  assert.ok(contents.includes("first reply"), "prior assistant turn must be replayed");
-  assert.ok(contents.includes("second message"), "new user turn must be present");
+  const sent = http.lastRequestBody(
+    "POST",
+    "http://localhost:11434/v1/chat/completions",
+  );
+  const contents: string[] = (sent.messages ?? []).map((
+    m: { content: string },
+  ) => m.content);
+  assert.ok(
+    contents.includes("first message"),
+    "prior user turn must be replayed",
+  );
+  assert.ok(
+    contents.includes("first reply"),
+    "prior assistant turn must be replayed",
+  );
+  assert.ok(
+    contents.includes("second message"),
+    "new user turn must be present",
+  );
 });
 
 test("chat turn: a blank message ends the chat (returns, no OpenAI call)", async () => {
@@ -442,7 +533,12 @@ test("chat turn: a blank message ends the chat (returns, no OpenAI call)", async
 
   const result = await runTurnStep(
     { message: "   " },
-    { messages: [{ role: "user", content: "hi" }, { role: "assistant", content: "hello" }] },
+    {
+      messages: [{ role: "user", content: "hi" }, {
+        role: "assistant",
+        content: "hello",
+      }],
+    },
   );
 
   assert.equal(result.ok, true);
@@ -464,7 +560,7 @@ test("chat turn: not_configured turn publishes the envelope and throws instead o
 
   assert.equal(envelope.ok, false);
   assert.equal(envelope.error, "not_configured");
-  assert.ok(envelope.missing.includes("model"));
+  assert.ok(envelope.missing?.includes("model"));
   assert.equal(error.message, "not_configured");
   assert.equal(calls.length, 0); // never suspended onward
 });
@@ -473,8 +569,13 @@ test("chat turn: not_configured turn publishes the envelope and throws instead o
 
 // Collect the tool names the agent offered the model on the last request.
 function offeredTools(): string[] {
-  const sent = http.lastRequestBody("POST", "http://localhost:11434/v1/chat/completions");
-  return (sent.tools ?? []).map((t: { function: { name: string } }) => t.function.name);
+  const sent = http.lastRequestBody(
+    "POST",
+    "http://localhost:11434/v1/chat/completions",
+  );
+  return (sent.tools ?? []).map((t: { function: { name: string } }) =>
+    t.function.name
+  );
 }
 
 // Drive one turn whose first model response calls `name` with `args`, and whose
@@ -483,7 +584,11 @@ async function runBuiltinCall(name: string, args: Record<string, unknown>) {
   http.mockOnce("POST", "http://localhost:11434/v1/chat/completions", {
     status: 200,
     body: completion("", [
-      { id: "call_1", type: "function", function: { name, arguments: JSON.stringify(args) } },
+      {
+        id: "call_1",
+        type: "function",
+        function: { name, arguments: JSON.stringify(args) },
+      },
     ]),
   });
   http.mockOnce("POST", "http://localhost:11434/v1/chat/completions", {
@@ -491,9 +596,13 @@ async function runBuiltinCall(name: string, args: Record<string, unknown>) {
     body: completion("done"),
   });
   const result = await runTask();
-  const sent = http.lastRequestBody("POST", "http://localhost:11434/v1/chat/completions");
+  const sent = http.lastRequestBody(
+    "POST",
+    "http://localhost:11434/v1/chat/completions",
+  );
   const toolMsg = (sent.messages ?? []).find(
-    (m: { role: string; tool_call_id?: string }) => m.role === "tool" && m.tool_call_id === "call_1",
+    (m: { role: string; tool_call_id?: string }) =>
+      m.role === "tool" && m.tool_call_id === "call_1",
   );
   return { reply: result.reply, toolResult: JSON.parse(toolMsg.content) };
 }
@@ -511,7 +620,10 @@ test("a run with no granted caps is offered no built-in tools", async () => {
   await runTask();
 
   const names = offeredTools();
-  assert.ok(names.includes("task_other_something"), "task tools must still be offered");
+  assert.ok(
+    names.includes("task_other_something"),
+    "task tools must still be offered",
+  );
   assert.ok(
     !names.some((n) => n.startsWith("dicode_")),
     `no built-in may be offered without a cap, got ${JSON.stringify(names)}`,
@@ -531,10 +643,22 @@ test("each built-in is offered only when its own cap was granted", async () => {
 
   const names = offeredTools();
   assert.ok(names.includes("dicode_test_task"), "tasks.test was granted");
-  assert.ok(names.includes("dicode_set_dev_mode"), "sources.set_dev_mode was granted");
-  assert.ok(!names.includes("dicode_list_sources"), "sources.list was not granted");
-  assert.ok(!names.includes("dicode_git_commit_push"), "git.commit_push was not granted");
-  assert.ok(!names.includes("dicode_replay_run"), "runs.replay was not granted");
+  assert.ok(
+    names.includes("dicode_set_dev_mode"),
+    "sources.set_dev_mode was granted",
+  );
+  assert.ok(
+    !names.includes("dicode_list_sources"),
+    "sources.list was not granted",
+  );
+  assert.ok(
+    !names.includes("dicode_git_commit_push"),
+    "git.commit_push was not granted",
+  );
+  assert.ok(
+    !names.includes("dicode_replay_run"),
+    "runs.replay was not granted",
+  );
 });
 
 test("dicode_list_sources reaches the SDK when sources.list is granted", async () => {
@@ -565,7 +689,9 @@ test("a built-in call reaches the SDK and its result feeds back to the model", a
     throw new Error("run_task must not be called for a built-in");
   };
 
-  const { reply, toolResult } = await runBuiltinCall("dicode_test_task", { task_id: "scratch/demo" });
+  const { reply, toolResult } = await runBuiltinCall("dicode_test_task", {
+    task_id: "scratch/demo",
+  });
 
   assert.equal(reply, "done");
   assert.equal(tested, ["scratch/demo"]);
@@ -579,11 +705,9 @@ test("set_dev_mode pins the clone to this run, ignoring any model-supplied id", 
   params.set("prompt", "enter dev mode");
   dicode.caps = ["sources.set_dev_mode"];
   dicode.run_id = "run-abc";
-  // deno-lint-ignore no-explicit-any
-  const calls: any[] = [];
+  const calls: { name: string; opts: DevModeOpts }[] = [];
   dicode.sources = {
-    // deno-lint-ignore no-explicit-any
-    set_dev_mode: async (name: string, opts: any) => {
+    set_dev_mode: async (name: string, opts: DevModeOpts) => {
       calls.push({ name, opts });
       return { ok: true, clone_path: "/data/dev-clones/scratch/run-abc" };
     },
@@ -608,11 +732,9 @@ test("commit_push defaults the commit author instead of asking the model to inve
   params.set("prompt", "push it");
   dicode.caps = ["git.commit_push"];
   dicode.task_id = "buildin/auto-fix";
-  // deno-lint-ignore no-explicit-any
-  const calls: any[] = [];
+  const calls: { sourceID: string; opts: CommitPushOpts }[] = [];
   dicode.git = {
-    // deno-lint-ignore no-explicit-any
-    commit_push: async (sourceID: string, opts: any) => {
+    commit_push: async (sourceID: string, opts: CommitPushOpts) => {
       calls.push({ sourceID, opts });
       return { commit: "abc1234" };
     },
@@ -635,11 +757,9 @@ test("commit_push takes its branch prefix from config, not from the model", asyn
   params.set("prompt", "push it");
   params.set("git_branch_prefix", "fix/");
   dicode.caps = ["git.commit_push"];
-  // deno-lint-ignore no-explicit-any
-  const calls: any[] = [];
+  const calls: CommitPushOpts[] = [];
   dicode.git = {
-    // deno-lint-ignore no-explicit-any
-    commit_push: async (_id: string, opts: any) => {
+    commit_push: async (_id: string, opts: CommitPushOpts) => {
       calls.push(opts);
       return { commit: "abc1234" };
     },
@@ -652,9 +772,13 @@ test("commit_push takes its branch prefix from config, not from the model", asyn
     branch_prefix: "release/",
   });
 
-  const sent = http.lastRequestBody("POST", "http://localhost:11434/v1/chat/completions");
+  const sent = http.lastRequestBody(
+    "POST",
+    "http://localhost:11434/v1/chat/completions",
+  );
   const tool = (sent.tools ?? []).find(
-    (t: { function: { name: string } }) => t.function.name === "dicode_git_commit_push",
+    (t: { function: { name: string } }) =>
+      t.function.name === "dicode_git_commit_push",
   );
   assert.equal(tool.function.parameters.properties.branch_prefix, undefined);
   assert.equal(calls[0].branch_prefix, "fix/");
@@ -668,7 +792,9 @@ test("a failing built-in returns an error result rather than killing the turn", 
     test: () => Promise.reject(new Error("task pending approval")),
   };
 
-  const { reply, toolResult } = await runBuiltinCall("dicode_test_task", { task_id: "scratch/demo" });
+  const { reply, toolResult } = await runBuiltinCall("dicode_test_task", {
+    task_id: "scratch/demo",
+  });
 
   assert.equal(reply, "done");
   assert.equal(toolResult.error, "task pending approval");
@@ -681,20 +807,22 @@ test("set_dev_mode withholds local_path: the model cannot redirect taskset resol
   useLocal();
   params.set("prompt", "enter dev mode");
   dicode.caps = ["sources.set_dev_mode"];
-  // deno-lint-ignore no-explicit-any
-  const calls: any[] = [];
+  const calls: DevModeOpts[] = [];
   dicode.sources = {
-    // deno-lint-ignore no-explicit-any
-    set_dev_mode: async (name: string, opts: any) => {
+    set_dev_mode: async (_name: string, opts: DevModeOpts) => {
       calls.push(opts);
       return { ok: true };
     },
   };
 
   const sentSchema = () => {
-    const sent = http.lastRequestBody("POST", "http://localhost:11434/v1/chat/completions");
+    const sent = http.lastRequestBody(
+      "POST",
+      "http://localhost:11434/v1/chat/completions",
+    );
     const tool = (sent.tools ?? []).find(
-      (t: { function: { name: string } }) => t.function.name === "dicode_set_dev_mode",
+      (t: { function: { name: string } }) =>
+        t.function.name === "dicode_set_dev_mode",
     );
     return tool.function.parameters.properties;
   };
@@ -713,11 +841,9 @@ test("commit_push withholds allow_main: the model cannot waive branch protection
   useLocal();
   params.set("prompt", "push it");
   dicode.caps = ["git.commit_push"];
-  // deno-lint-ignore no-explicit-any
-  const calls: any[] = [];
+  const calls: CommitPushOpts[] = [];
   dicode.git = {
-    // deno-lint-ignore no-explicit-any
-    commit_push: async (_id: string, opts: any) => {
+    commit_push: async (_id: string, opts: CommitPushOpts) => {
       calls.push(opts);
       return { commit: "abc1234" };
     },
@@ -730,9 +856,13 @@ test("commit_push withholds allow_main: the model cannot waive branch protection
     allow_main: true,
   });
 
-  const sent = http.lastRequestBody("POST", "http://localhost:11434/v1/chat/completions");
+  const sent = http.lastRequestBody(
+    "POST",
+    "http://localhost:11434/v1/chat/completions",
+  );
   const tool = (sent.tools ?? []).find(
-    (t: { function: { name: string } }) => t.function.name === "dicode_git_commit_push",
+    (t: { function: { name: string } }) =>
+      t.function.name === "dicode_git_commit_push",
   );
   assert.equal(tool.function.parameters.properties.allow_main, undefined);
   assert.equal(calls[0].allow_main, undefined);
@@ -764,8 +894,13 @@ UNIQUE_BODY_MARKER — every task.yaml starts with apiVersion: dicode/v1.
 
 // The system prompt the agent sent on its last request.
 function lastSystemPrompt(): string {
-  const sent = http.lastRequestBody("POST", "http://localhost:11434/v1/chat/completions");
-  return (sent.messages ?? []).find((m: { role: string }) => m.role === "system").content;
+  const sent = http.lastRequestBody(
+    "POST",
+    "http://localhost:11434/v1/chat/completions",
+  );
+  return (sent.messages ?? []).find((m: { role: string }) =>
+    m.role === "system"
+  ).content;
 }
 
 // Drive one plain turn so the request body carries the assembled prompt.
@@ -785,12 +920,20 @@ test("index mode advertises a skill by description and keeps its body out of the
   await runPlainTurn();
 
   const prompt = lastSystemPrompt();
-  assert.ok(prompt.includes("- task-dev — Mandatory workflow for writing a dicode task."),
-    `index line missing from prompt: ${prompt}`);
-  assert.ok(!prompt.includes("UNIQUE_BODY_MARKER"),
-    "index mode must not splice the skill body into the system prompt");
-  assert.ok(offeredTools().includes("dicode_read_skill"),
-    "the index is only actionable with the lookup tool alongside it");
+  assert.ok(
+    prompt.includes(
+      "- task-dev — Mandatory workflow for writing a dicode task.",
+    ),
+    `index line missing from prompt: ${prompt}`,
+  );
+  assert.ok(
+    !prompt.includes("UNIQUE_BODY_MARKER"),
+    "index mode must not splice the skill body into the system prompt",
+  );
+  assert.ok(
+    offeredTools().includes("dicode_read_skill"),
+    "the index is only actionable with the lookup tool alongside it",
+  );
 });
 
 test("dicode_read_skill hands back the full body", async () => {
@@ -798,10 +941,15 @@ test("dicode_read_skill hands back the full body", async () => {
   params.set("prompt", "write me a task");
   await useSkills({ "task-dev": TASK_DEV_SKILL });
 
-  const { toolResult } = await runBuiltinCall("dicode_read_skill", { name: "task-dev" });
+  const { toolResult } = await runBuiltinCall("dicode_read_skill", {
+    name: "task-dev",
+  });
 
   assert.equal(toolResult.name, "task-dev");
-  assert.equal(toolResult.description, "Mandatory workflow for writing a dicode task.");
+  assert.equal(
+    toolResult.description,
+    "Mandatory workflow for writing a dicode task.",
+  );
   assert.ok(toolResult.body.includes("UNIQUE_BODY_MARKER"));
   // Frontmatter is index material; re-sending it wastes the turn's budget.
   assert.ok(!toolResult.body.includes("description:"));
@@ -816,8 +964,10 @@ test("eager mode splices every body in and offers no lookup tool", async () => {
   await runPlainTurn();
 
   assert.ok(lastSystemPrompt().includes("UNIQUE_BODY_MARKER"));
-  assert.ok(!offeredTools().includes("dicode_read_skill"),
-    "eager mode already carries the bodies; the tool would only re-send them");
+  assert.ok(
+    !offeredTools().includes("dicode_read_skill"),
+    "eager mode already carries the bodies; the tool would only re-send them",
+  );
 });
 
 test("no skills configured means no lookup tool", async () => {
@@ -834,10 +984,15 @@ test("read_skill on an unknown name names the ones that exist", async () => {
   params.set("prompt", "write me a task");
   await useSkills({ "task-dev": TASK_DEV_SKILL });
 
-  const { toolResult } = await runBuiltinCall("dicode_read_skill", { name: "not-a-skill" });
+  const { toolResult } = await runBuiltinCall("dicode_read_skill", {
+    name: "not-a-skill",
+  });
 
   assert.equal(toolResult.error, "unknown skill: not-a-skill");
-  assert.equal(JSON.stringify(toolResult.available), JSON.stringify(["task-dev"]));
+  assert.equal(
+    JSON.stringify(toolResult.available),
+    JSON.stringify(["task-dev"]),
+  );
 });
 
 test("a skill that will not load says so in the index and again on lookup", async () => {
@@ -846,15 +1001,28 @@ test("a skill that will not load says so in the index and again on lookup", asyn
   const dir = await useSkills({});
   params.set("skills", "missing");
 
-  const { toolResult } = await runBuiltinCall("dicode_read_skill", { name: "missing" });
+  const { toolResult } = await runBuiltinCall("dicode_read_skill", {
+    name: "missing",
+  });
 
-  assert.ok(lastSystemPrompt().includes("- missing — (not loaded: no such skill file)"),
-    "a skill the model is told exists must not vanish from the index when it fails to load");
-  assert.equal(toolResult.error, "skill missing not loaded: no such skill file");
+  assert.ok(
+    lastSystemPrompt().includes("- missing — (not loaded: no such skill file)"),
+    "a skill the model is told exists must not vanish from the index when it fails to load",
+  );
+  assert.equal(
+    toolResult.error,
+    "skill missing not loaded: no such skill file",
+  );
   // The raw Deno read error names the absolute path it tried. Host paths are
   // not the model's to see; the operator gets them from the run log.
-  assert.ok(!lastSystemPrompt().includes(dir), "the skills directory must not reach the prompt");
-  assert.ok(!String(toolResult.error).includes(dir), "the skills directory must not reach the model");
+  assert.ok(
+    !lastSystemPrompt().includes(dir),
+    "the skills directory must not reach the prompt",
+  );
+  assert.ok(
+    !String(toolResult.error).includes(dir),
+    "the skills directory must not reach the model",
+  );
 });
 
 test("a traversing skill name is rejected before it reaches the filesystem", async () => {
@@ -863,9 +1031,14 @@ test("a traversing skill name is rejected before it reaches the filesystem", asy
   await useSkills({});
   params.set("skills", "../../etc/passwd");
 
-  const { toolResult } = await runBuiltinCall("dicode_read_skill", { name: "../../etc/passwd" });
+  const { toolResult } = await runBuiltinCall("dicode_read_skill", {
+    name: "../../etc/passwd",
+  });
 
-  assert.equal(toolResult.error, "skill ../../etc/passwd not loaded: invalid skill name");
+  assert.equal(
+    toolResult.error,
+    "skill ../../etc/passwd not loaded: invalid skill name",
+  );
 });
 
 test("a skill with no frontmatter is indexed by its first line of prose", async () => {
@@ -875,8 +1048,10 @@ test("a skill with no frontmatter is indexed by its first line of prose", async 
 
   await runPlainTurn();
 
-  assert.ok(lastSystemPrompt().includes("- bare — Bare skill"),
-    `expected a prose fallback description: ${lastSystemPrompt()}`);
+  assert.ok(
+    lastSystemPrompt().includes("- bare — Bare skill"),
+    `expected a prose fallback description: ${lastSystemPrompt()}`,
+  );
 });
 
 test("an unrecognised skills_mode fails loud instead of picking one", async () => {
@@ -885,7 +1060,10 @@ test("an unrecognised skills_mode fails loud instead of picking one", async () =
   params.set("skills_mode", "lazy");
   await useSkills({ "task-dev": TASK_DEV_SKILL });
 
-  await assert.throws(() => runTask(), /skills_mode must be "index" or "eager"/);
+  await assert.throws(
+    () => runTask(),
+    /skills_mode must be "index" or "eager"/,
+  );
 });
 
 test("the index precedes the operator's own system prompt", async () => {
@@ -897,8 +1075,10 @@ test("the index precedes the operator's own system prompt", async () => {
   await runPlainTurn();
 
   const prompt = lastSystemPrompt();
-  assert.ok(prompt.indexOf("# Skills") < prompt.indexOf("OPERATOR_PROMPT_MARKER"),
-    "the operator's instructions must be the last thing the model reads before the request");
+  assert.ok(
+    prompt.indexOf("# Skills") < prompt.indexOf("OPERATOR_PROMPT_MARKER"),
+    "the operator's instructions must be the last thing the model reads before the request",
+  );
 });
 
 test("eager keeps the skill bodies after the operator's system prompt", async () => {
@@ -913,8 +1093,11 @@ test("eager keeps the skill bodies after the operator's system prompt", async ()
   // Opting back into eager has to reproduce the prompt it produced before,
   // ordering included, or it is not an opt-out.
   const prompt = lastSystemPrompt();
-  assert.ok(prompt.indexOf("OPERATOR_PROMPT_MARKER") < prompt.indexOf("UNIQUE_BODY_MARKER"),
-    "eager mode must leave the bodies where they were");
+  assert.ok(
+    prompt.indexOf("OPERATOR_PROMPT_MARKER") <
+      prompt.indexOf("UNIQUE_BODY_MARKER"),
+    "eager mode must leave the bodies where they were",
+  );
 });
 
 // caller_context is the agent's opaque pass-through: a pipeline stage cannot
@@ -938,7 +1121,10 @@ test("caller_context is returned verbatim and never interpreted", async () => {
   assert.equal(result.caller_context, "/srv/ai-tasks/zen quote/../weird:value");
   // It is the caller's value, not an instruction to the model: it must not
   // reach the provider at all.
-  const sent = http.lastRequestBody("POST", "http://localhost:11434/v1/chat/completions");
+  const sent = http.lastRequestBody(
+    "POST",
+    "http://localhost:11434/v1/chat/completions",
+  );
   assert.ok(!JSON.stringify(sent).includes("weird:value"));
 });
 

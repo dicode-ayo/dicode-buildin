@@ -14,7 +14,8 @@ import {
 } from "./deps.ts";
 
 const DEFAULT_VERSION = "v0.2.0";
-const DEFAULT_URL_BASE = "https://github.com/wobsoriano/systray-portable/releases/download";
+const DEFAULT_URL_BASE =
+  "https://github.com/wobsoriano/systray-portable/releases/download";
 
 // Simple debug logger — only emits when conf.debug is true.
 // deno.land/x/debug reads Deno.env.get("DEBUG") at import time which requires
@@ -165,7 +166,11 @@ function menuTrimmer(menu: Menu) {
 
 function actionTrimmer(action: Action) {
   if (action.type === "update-item") {
-    return { type: action.type, item: itemTrimmer(action.item), seq_id: action.seq_id };
+    return {
+      type: action.type,
+      item: itemTrimmer(action.item),
+      seq_id: action.seq_id,
+    };
   } else if (action.type === "update-menu") {
     return { type: action.type, menu: menuTrimmer(action.menu) };
   } else if (action.type === "update-menu-and-item") {
@@ -261,7 +266,9 @@ export default class SysTray extends EventEmitter<Events> {
     this._conf = conf;
     this._binPath = null!;
 
-    if (this._conf.directory) configureCache({ directory: this._conf.directory });
+    if (this._conf.directory) {
+      configureCache({ directory: this._conf.directory });
+    }
 
     this._ready = this.init();
   }

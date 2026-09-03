@@ -42,7 +42,9 @@ export default async function main({ params, dicode }: DicodeSdk) {
 
   const cutoff = Math.floor(Date.now() / 1000) - retention;
 
-  const rows = (await (dicode as DicodeWithRuns).runs.list_expired({ before_ts: cutoff })) as
+  const rows = (await (dicode as DicodeWithRuns).runs.list_expired({
+    before_ts: cutoff,
+  })) as
     | ExpiredRow[]
     | null;
 
@@ -56,7 +58,9 @@ export default async function main({ params, dicode }: DicodeSdk) {
   for (const [i, row] of rows.entries()) {
     if (Date.now() >= deadline) {
       remaining = rows.length - i;
-      console.log(`budget of ${budget}s reached; ${remaining} left for the next tick`);
+      console.log(
+        `budget of ${budget}s reached; ${remaining} left for the next tick`,
+      );
       break;
     }
     try {

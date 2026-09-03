@@ -22,7 +22,10 @@ function toLokiTs(iso: string): string {
 // High-cardinality data (id, run_id, actor/target ids) stays in the log
 // line, not in labels, to avoid Loki stream explosion.
 function buildStreams(events: AuditEvent[]) {
-  const byLabel = new Map<string, { stream: Record<string, string>; values: [string, string][] }>();
+  const byLabel = new Map<
+    string,
+    { stream: Record<string, string>; values: [string, string][] }
+  >();
   for (const ev of events) {
     const labels: Record<string, string> = {
       job: "dicode-audit",
@@ -43,7 +46,10 @@ function buildStreams(events: AuditEvent[]) {
 }
 
 export default async function main({ params, kv, dicode }: DicodeSdk) {
-  const endpoint = ((await params.get("endpoint")) ?? "").trim().replace(/\/+$/, "");
+  const endpoint = ((await params.get("endpoint")) ?? "").trim().replace(
+    /\/+$/,
+    "",
+  );
   if (!endpoint) {
     return { ok: false, error: "endpoint param is required" };
   }
@@ -63,7 +69,9 @@ export default async function main({ params, kv, dicode }: DicodeSdk) {
 
   const body = JSON.stringify({ streams: buildStreams(events) });
 
-  const headers: Record<string, string> = { "content-type": "application/json" };
+  const headers: Record<string, string> = {
+    "content-type": "application/json",
+  };
   const tenant = ((await params.get("tenant_id")) ?? "").trim();
   if (tenant) headers["X-Scope-OrgID"] = tenant;
 
@@ -101,6 +109,8 @@ export default async function main({ params, kv, dicode }: DicodeSdk) {
   const next = res.next_cursor || cursor;
   await kv.set(CURSOR_KEY, next);
 
-  console.log(`[audit-export-loki] shipped ${events.length} events; cursor -> ${next}`);
+  console.log(
+    `[audit-export-loki] shipped ${events.length} events; cursor -> ${next}`,
+  );
   return { ok: true, shipped: events.length, cursor: next };
 }

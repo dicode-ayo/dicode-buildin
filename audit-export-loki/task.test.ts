@@ -53,7 +53,11 @@ test("ships a batch and advances the cursor on 2xx", async () => {
   http.mock("POST", `${ENDPOINT}/loki/api/v1/push`, { status: 200 });
 
   params.set("endpoint", ENDPOINT);
-  const res = await runTask() as { ok: boolean; shipped: number; cursor: string };
+  const res = await runTask() as {
+    ok: boolean;
+    shipped: number;
+    cursor: string;
+  };
 
   assert.equal(res.ok, true);
   assert.equal(res.shipped, 2);
@@ -90,7 +94,11 @@ test("no-op when there are no new events", async () => {
   });
   params.set("endpoint", ENDPOINT);
   kv.set("cursor", "CURSOR-KEEP");
-  const res = await runTask() as { ok: boolean; shipped: number; cursor: string };
+  const res = await runTask() as {
+    ok: boolean;
+    shipped: number;
+    cursor: string;
+  };
   assert.equal(res.ok, true);
   assert.equal(res.shipped, 0);
   // Cursor unchanged and no push issued.
@@ -103,11 +111,18 @@ test("does NOT advance the cursor when Loki returns non-2xx", async () => {
   setAuditMock({
     query: async () => ({ events: [evt("e1")], next_cursor: "CURSOR-NEW" }),
   });
-  http.mock("POST", `${ENDPOINT}/loki/api/v1/push`, { status: 503, body: "overloaded" });
+  http.mock("POST", `${ENDPOINT}/loki/api/v1/push`, {
+    status: 503,
+    body: "overloaded",
+  });
 
   params.set("endpoint", ENDPOINT);
   kv.set("cursor", "CURSOR-OLD");
-  const res = await runTask() as { ok: boolean; shipped: number; status: number };
+  const res = await runTask() as {
+    ok: boolean;
+    shipped: number;
+    status: number;
+  };
   assert.equal(res.ok, false);
   assert.equal(res.shipped, 0);
   assert.equal(res.status, 503);
@@ -137,19 +152,27 @@ test("groups events into streams by low-cardinality labels", async () => {
   // Two distinct (event_type, allowed) tuples → two streams.
   assert.equal(sent.streams.length, 2);
   // Each line value is the JSON-encoded event carrying the id for dedupe.
-  const allValues = sent.streams.flatMap((s) => s.values.map((v) => JSON.parse(v[1]).id));
-  assert.ok(allValues.includes("a") && allValues.includes("b") && allValues.includes("c"),
-    "every event id must appear in a stream line");
+  const allValues = sent.streams.flatMap((s) =>
+    s.values.map((v) => JSON.parse(v[1]).id)
+  );
+  assert.ok(
+    allValues.includes("a") && allValues.includes("b") &&
+      allValues.includes("c"),
+    "every event id must appear in a stream line",
+  );
 });
 
 test("sends Bearer auth when no auth_user is set", async () => {
-  setAuditMock({ query: async () => ({ events: [evt("e1")], next_cursor: "C1" }) });
+  setAuditMock({
+    query: async () => ({ events: [evt("e1")], next_cursor: "C1" }),
+  });
   let seenAuth = "";
   // Capture the header via a custom fetch wrapper since the harness mock
   // records the body but not headers; intercept through a real fetch shim.
   const origFetch = globalThis.fetch;
   (globalThis as unknown as { fetch: typeof fetch }).fetch = (input, init) => {
-    seenAuth = (init?.headers as Record<string, string>)?.["authorization"] ?? "";
+    seenAuth = (init?.headers as Record<string, string>)?.["authorization"] ??
+      "";
     return origFetch(input, init);
   };
   http.mock("POST", `${ENDPOINT}/loki/api/v1/push`, { status: 200 });
@@ -163,11 +186,14 @@ test("sends Bearer auth when no auth_user is set", async () => {
 });
 
 test("sends Basic auth when auth_user is set", async () => {
-  setAuditMock({ query: async () => ({ events: [evt("e1")], next_cursor: "C1" }) });
+  setAuditMock({
+    query: async () => ({ events: [evt("e1")], next_cursor: "C1" }),
+  });
   let seenAuth = "";
   const origFetch = globalThis.fetch;
   (globalThis as unknown as { fetch: typeof fetch }).fetch = (input, init) => {
-    seenAuth = (init?.headers as Record<string, string>)?.["authorization"] ?? "";
+    seenAuth = (init?.headers as Record<string, string>)?.["authorization"] ??
+      "";
     return origFetch(input, init);
   };
   http.mock("POST", `${ENDPOINT}/loki/api/v1/push`, { status: 200 });
@@ -186,5 +212,8 @@ test("fails when endpoint param is missing", async () => {
   // endpoint not set
   const res = await runTask() as { ok: boolean; error: string };
   assert.equal(res.ok, false);
-  assert.ok(res.error.includes("endpoint"), `expected endpoint error, got ${res.error}`);
+  assert.ok(
+    res.error.includes("endpoint"),
+    `expected endpoint error, got ${res.error}`,
+  );
 });

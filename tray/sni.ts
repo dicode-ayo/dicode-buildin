@@ -25,10 +25,16 @@ export function parseHostRegistered(stdout: string): boolean | null {
 async function gdbusRunner(dest: string): Promise<string | null> {
   const { code, stdout } = await new Deno.Command("gdbus", {
     args: [
-      "call", "--session", "--dest", dest,
-      "--object-path", "/StatusNotifierWatcher",
-      "--method", "org.freedesktop.DBus.Properties.Get",
-      dest, "IsStatusNotifierHostRegistered",
+      "call",
+      "--session",
+      "--dest",
+      dest,
+      "--object-path",
+      "/StatusNotifierWatcher",
+      "--method",
+      "org.freedesktop.DBus.Properties.Get",
+      dest,
+      "IsStatusNotifierHostRegistered",
     ],
     stdout: "piped",
     stderr: "null",

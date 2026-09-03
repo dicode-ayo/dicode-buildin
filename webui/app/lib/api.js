@@ -31,21 +31,21 @@ export async function api(method, path, body) {
 async function _fetch(method, path, body) {
   const opts = { method, headers: {} };
   if (body !== undefined) {
-    opts.headers['Content-Type'] = 'application/json';
+    opts.headers["Content-Type"] = "application/json";
     opts.body = JSON.stringify(body);
   }
   return fetch(path, opts);
 }
 
 async function _parse(res) {
-  const ct = res.headers.get('Content-Type') || '';
-  if (ct.includes('application/json')) return res.json();
+  const ct = res.headers.get("Content-Type") || "";
+  if (ct.includes("application/json")) return res.json();
   return res.text();
 }
 
 async function _tryRefresh() {
   try {
-    const res = await fetch('/api/auth/refresh', { method: 'POST' });
+    const res = await fetch("/api/auth/refresh", { method: "POST" });
     return res.ok;
   } catch {
     return false;
@@ -55,17 +55,17 @@ async function _tryRefresh() {
 // _awaitLogin shows the auth overlay and returns a promise that resolves once
 // the user has successfully authenticated.
 function _awaitLogin() {
-  return new Promise(resolve => {
+  return new Promise((resolve) => {
     if (_authOverlay) {
       _authOverlay.show(resolve);
     } else {
       // Fallback: hard reload to the login page if overlay isn't mounted yet.
-      location.href = '/?auth=required';
+      location.href = "/?auth=required";
     }
   });
 }
 
-export const get   = (path)       => api('GET',    path);
-export const post  = (path, body) => api('POST',   path, body);
-export const patch = (path, body) => api('PATCH',  path, body);
-export const del   = (path)       => api('DELETE', path);
+export const get = (path) => api("GET", path);
+export const post = (path, body) => api("POST", path, body);
+export const patch = (path, body) => api("PATCH", path, body);
+export const del = (path) => api("DELETE", path);

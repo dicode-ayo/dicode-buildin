@@ -18,7 +18,9 @@ import { isAbortedHandshakeFault, resolveServerURLs } from "./task.ts";
 
 function assertEq(got: unknown, want: unknown, msg: string): void {
   if (got !== want) {
-    throw new Error(`${msg}: got ${JSON.stringify(got)}, want ${JSON.stringify(want)}`);
+    throw new Error(
+      `${msg}: got ${JSON.stringify(got)}, want ${JSON.stringify(want)}`,
+    );
   }
 }
 
@@ -76,7 +78,8 @@ Deno.test("does not swallow non-TypeError handshake errors", () => {
   // error path — RelayClient's own backoff handles it; the process-level
   // handler must not.
   const err = new Error("Opening handshake has timed out");
-  err.stack = `Error: Opening handshake has timed out\n${ABORT_HANDSHAKE_STACK}`;
+  err.stack =
+    `Error: Opening handshake has timed out\n${ABORT_HANDSHAKE_STACK}`;
   assertEq(isAbortedHandshakeFault(err), false, "plain Error must stay fatal");
 });
 
@@ -85,21 +88,34 @@ Deno.test("does not swallow other TypeErrors from ws internals", () => {
     "Cannot read properties of undefined (reading 'send')",
     ABORT_HANDSHAKE_STACK,
   );
-  assertEq(isAbortedHandshakeFault(err), false, "undefined-deref must stay fatal");
+  assertEq(
+    isAbortedHandshakeFault(err),
+    false,
+    "undefined-deref must stay fatal",
+  );
 });
 
 Deno.test("does not swallow non-Error values", () => {
   assertEq(
-    isAbortedHandshakeFault("Cannot read properties of null (reading 'setHeader')"),
+    isAbortedHandshakeFault(
+      "Cannot read properties of null (reading 'setHeader')",
+    ),
     false,
     "string reason must stay fatal",
   );
   assertEq(isAbortedHandshakeFault(null), false, "null must stay fatal");
-  assertEq(isAbortedHandshakeFault(undefined), false, "undefined must stay fatal");
+  assertEq(
+    isAbortedHandshakeFault(undefined),
+    false,
+    "undefined must stay fatal",
+  );
 });
 
 // ── resolveServerURLs: multi-URL precedence (issue #624) ────────────────
-function withEnv(vars: Record<string, string | undefined>, fn: () => void): void {
+function withEnv(
+  vars: Record<string, string | undefined>,
+  fn: () => void,
+): void {
   const saved: Record<string, string | undefined> = {};
   for (const k of ["DICODE_RELAY_SERVER_URLS", "DICODE_RELAY_SERVER_URL"]) {
     saved[k] = Deno.env.get(k);
@@ -141,6 +157,10 @@ Deno.test("resolveServerURLs: prefers the list, trims and drops empties", () => 
 
 Deno.test("resolveServerURLs: empty when neither var is set", () => {
   withEnv({}, () => {
-    assertEq(JSON.stringify(resolveServerURLs()), JSON.stringify([]), "no config");
+    assertEq(
+      JSON.stringify(resolveServerURLs()),
+      JSON.stringify([]),
+      "no config",
+    );
   });
 });

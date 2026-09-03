@@ -3,7 +3,34 @@
   "compilerOptions": {
     "lib": ["deno.window"]
   },
+  "lint": {
+    "rules": {
+      "tags": ["recommended"]
+    }
+  },
+  "fmt": {
+    "exclude": [
+      // task.yaml and taskset.yaml are data the daemon parses under a strict
+      // validator, and their multi-line prompt blocks are indentation-sensitive.
+      "**/*.yaml",
+      "**/*.yml",
+      // skills/ is model prompt content and the READMEs carry wide tables that
+      // table-padding blows past 240 columns; neither is source.
+      "**/*.md",
+      // deno fmt oscillates on these lit components' nested html`` template
+      // literals and bails with "Formatting not stable".
+      "webui/app/components/dc-auth-overlay.js",
+      "webui/app/components/dc-security.js",
+      "webui/app/components/dc-task-detail.js",
+      "webui/app/components/dc-task-list.js",
+      "webui/app/components/dc-ui-kit-demo.js"
+    ]
+  },
   "tasks": {
-    "test": "deno test --allow-all ./**/task.test.ts ./taskset.test.ts"
+    "test": "deno test --allow-all ./**/task.test.ts ./taskset.test.ts",
+    "lint": "deno lint",
+    "fmt": "deno fmt",
+    "fmt:check": "deno fmt --check",
+    "check": "deno lint && deno fmt --check && deno task test"
   }
 }

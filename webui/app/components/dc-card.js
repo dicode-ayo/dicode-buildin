@@ -1,5 +1,5 @@
-import { LitElement, html, css } from 'https://esm.sh/lit@3';
-import { hasSlottedElement } from '../lib/slot-utils.js';
+import { css, html, LitElement } from "https://esm.sh/lit@3";
+import { hasSlottedElement } from "../lib/slot-utils.js";
 
 // <dc-card> — Stage 1 primitive (#93): a bordered surface with an optional
 // title/actions header, replacing the ad hoc `<div class="card" style="...">`
@@ -41,7 +41,9 @@ class DcCard extends LitElement {
          rather than renegotiate per component. */
       transition: border-color var(--dicode-duration-fast) var(--dicode-ease);
     }
-    :host(:hover) { border-color: var(--dicode-border-strong); }
+    :host(:hover) {
+      border-color: var(--dicode-border-strong);
+    }
     .header {
       display: flex;
       align-items: center;
@@ -49,7 +51,9 @@ class DcCard extends LitElement {
       padding: var(--dicode-space-md) var(--dicode-space-lg);
       border-bottom: var(--dicode-border-width) solid var(--dicode-border);
     }
-    .header[hidden] { display: none; }
+    .header[hidden] {
+      display: none;
+    }
     /* Scoped to slot[name="title"] specifically, not ".header
        ::slotted(h2)" generically — .header also contains the "actions"
        slot, and a bare ".header ::slotted(h2)" would match an <h2>
@@ -68,14 +72,18 @@ class DcCard extends LitElement {
       align-items: center;
       gap: var(--dicode-space-sm);
     }
-    .body { padding: var(--dicode-space-md) var(--dicode-space-lg); }
-    :host([pad='none']) .body { padding: 0; }
+    .body {
+      padding: var(--dicode-space-md) var(--dicode-space-lg);
+    }
+    :host([pad="none"]) .body {
+      padding: 0;
+    }
   `;
 
   constructor() {
     super();
-    this.heading = '';
-    this.pad = 'md';
+    this.heading = "";
+    this.pad = "md";
     this._hasTitle = false;
     this._hasActions = false;
   }
@@ -99,8 +107,8 @@ class DcCard extends LitElement {
   }
 
   _recomputeSlotState() {
-    this._hasTitle = hasSlottedElement(this, 'title');
-    this._hasActions = hasSlottedElement(this, 'actions');
+    this._hasTitle = hasSlottedElement(this, "title");
+    this._hasActions = hasSlottedElement(this, "actions");
   }
 
   // Bound once (arrow class field) so both `@slotchange` bindings below
@@ -112,11 +120,17 @@ class DcCard extends LitElement {
   render() {
     const showHeader = !!this.heading || this._hasTitle || this._hasActions;
     return html`
-      <div class="header" ?hidden=${!showHeader}>
-        <slot name="title" @slotchange=${this._onSlotChange}>
-          ${this.heading ? html`<h2>${this.heading}</h2>` : ''}
+      <div class="header" ?hidden="${!showHeader}">
+        <slot name="title" @slotchange="${this._onSlotChange}">
+          ${this.heading
+        ? html`
+          <h2>${this.heading}</h2>
+        `
+        : ""}
         </slot>
-        <div class="actions"><slot name="actions" @slotchange=${this._onSlotChange}></slot></div>
+        <div class="actions">
+          <slot name="actions" @slotchange="${this._onSlotChange}"></slot>
+        </div>
       </div>
       <div class="body">
         <slot></slot>
@@ -125,4 +139,4 @@ class DcCard extends LitElement {
   }
 }
 
-customElements.define('dc-card', DcCard);
+customElements.define("dc-card", DcCard);

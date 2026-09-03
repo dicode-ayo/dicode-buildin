@@ -21,7 +21,8 @@ async function collectActiveRunIDs(dicode: Dicode): Promise<Set<string>> {
     let runs: Array<{ ID: string; Status: string }> = [];
     try {
       // get_runs returns null (not []) when the task has no runs.
-      runs = ((await dicode.get_runs(t.id, { limit: 100 })) ?? []) as typeof runs;
+      runs =
+        ((await dicode.get_runs(t.id, { limit: 100 })) ?? []) as typeof runs;
     } catch {
       continue; // task may have been deregistered between list_tasks and get_runs
     }
@@ -34,7 +35,9 @@ async function collectActiveRunIDs(dicode: Dicode): Promise<Set<string>> {
   return active;
 }
 
-export default async function main({ params, dicode }: DicodeSdk): Promise<unknown> {
+export default async function main(
+  { params, dicode }: DicodeSdk,
+): Promise<unknown> {
   // The daemon exports the resolved data dir as DICODE_DATADIR, so we always
   // operate on the actual data directory regardless of the ~/.dicode default.
   const dataEnv = Deno.env.get("DICODE_DATADIR");
@@ -43,7 +46,9 @@ export default async function main({ params, dicode }: DicodeSdk): Promise<unkno
     : (await params.get("dev_clones_root")) ?? "";
 
   if (!root) {
-    dicode.log?.error?.("could not determine dev-clones root — DICODE_DATADIR unset and dev_clones_root param empty");
+    dicode.log?.error?.(
+      "could not determine dev-clones root — DICODE_DATADIR unset and dev_clones_root param empty",
+    );
     return { ok: false, error: "dev_clones_root unset" };
   }
 
@@ -53,7 +58,7 @@ export default async function main({ params, dicode }: DicodeSdk): Promise<unkno
   let kept = 0;
 
   // List source-name directories under <root>/.
-  let sourceEntries: Deno.DirEntry[] = [];
+  const sourceEntries: Deno.DirEntry[] = [];
   try {
     for await (const entry of Deno.readDir(root)) {
       sourceEntries.push(entry);
@@ -83,11 +88,18 @@ export default async function main({ params, dicode }: DicodeSdk): Promise<unkno
         removed++;
         console.log(`dev-clones-cleanup: removed orphan ${clonePath}`);
       } catch (err) {
-        console.warn(`dev-clones-cleanup: failed to remove ${clonePath}: ${String(err)}`);
+        console.warn(
+          `dev-clones-cleanup: failed to remove ${clonePath}: ${String(err)}`,
+        );
       }
     }
   }
 
-  console.log("dev-clones-cleanup", { root, removed, kept, active: active.size });
+  console.log("dev-clones-cleanup", {
+    root,
+    removed,
+    kept,
+    active: active.size,
+  });
   return { ok: true, removed, kept };
 }

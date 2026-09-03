@@ -62,14 +62,14 @@ class DcTaskDetail extends LitElement {
     super.connectedCallback();
     this._load();
     this._onThemeChange = () => {
-      if (window.monaco) window.monaco.editor.setTheme(monacoTheme());
+      if (globalThis.monaco) globalThis.monaco.editor.setTheme(monacoTheme());
     };
-    window.addEventListener('dicode-theme-change', this._onThemeChange);
+    globalThis.addEventListener('dicode-theme-change', this._onThemeChange);
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
-    window.removeEventListener('dicode-theme-change', this._onThemeChange);
+    globalThis.removeEventListener('dicode-theme-change', this._onThemeChange);
     this._cleanup();
   }
 
@@ -503,7 +503,7 @@ class DcTaskDetail extends LitElement {
         const cm = new Map(this._children);
         cm.set(runID, group || []);
         this._children = cm;
-      } catch (e) {
+      } catch {
         const cm = new Map(this._children);
         cm.set(runID, []);
         this._children = cm;

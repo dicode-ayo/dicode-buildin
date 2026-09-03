@@ -1,4 +1,4 @@
-import { LitElement, html, css } from 'https://esm.sh/lit@3';
+import { css, html, LitElement } from "https://esm.sh/lit@3";
 
 // <dc-page-header> — Stage 1 primitive (#93): the page-title row pattern
 // duplicated inline across dc-task-list.js (`<h1>Tasks</h1>` + filter input)
@@ -24,7 +24,12 @@ class DcPageHeader extends LitElement {
       margin-bottom: var(--dicode-space-md);
       flex-wrap: wrap;
     }
-    .titles { display: flex; flex-direction: column; gap: var(--dicode-space-xs); min-width: 0; }
+    .titles {
+      display: flex;
+      flex-direction: column;
+      gap: var(--dicode-space-xs);
+      min-width: 0;
+    }
     h1 {
       margin: 0;
       font-size: var(--dicode-text-xl);
@@ -47,19 +52,23 @@ class DcPageHeader extends LitElement {
 
   constructor() {
     super();
-    this.heading = '';
-    this.subtitle = '';
+    this.heading = "";
+    this.subtitle = "";
   }
 
   render() {
     return html`
       <div class="titles">
         <h1>${this.heading}</h1>
-        ${this.subtitle ? html`<span class="subtitle">${this.subtitle}</span>` : ''}
+        ${this.subtitle
+        ? html`
+          <span class="subtitle">${this.subtitle}</span>
+        `
+        : ""}
       </div>
       <div class="actions"><slot></slot></div>
     `;
   }
 }
 
-customElements.define('dc-page-header', DcPageHeader);
+customElements.define("dc-page-header", DcPageHeader);

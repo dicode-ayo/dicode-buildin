@@ -51,7 +51,10 @@ Deno.test("task-create-turn grants exactly the authoring capabilities", () => {
       "runs_unpin_input",
     ]
   ) {
-    assert(!d[cap], `${cap} must stay withheld: there is no prior run to act on`);
+    assert(
+      !d[cap],
+      `${cap} must stay withheld: there is no prior run to act on`,
+    );
   }
 });
 
@@ -74,7 +77,9 @@ Deno.test("task-create-turn names git-pr by its namespaced id", () => {
 Deno.test("task-create-turn keeps an rw grant on the dev-clones scratch dir", () => {
   const fs: Yaml[] = entry("task-create-turn").overrides?.fs ?? [];
   assert(
-    fs.some((g) => String(g.path).includes("dev-clones") && g.permission === "rw"),
+    fs.some((g) =>
+      String(g.path).includes("dev-clones") && g.permission === "rw"
+    ),
     `missing rw dev-clones grant; got ${JSON.stringify(fs)}`,
   );
 });
@@ -119,7 +124,11 @@ Deno.test("task-create verifies what the turn claimed to write", () => {
   // pipeline whose last stage reads the disk. Collapsing it back to a bare
   // agent entry restores the bug where a turn that wrote nothing settles
   // green, so that has to be a deliberate act that fails this test.
-  assertEquals(pipeline.kind, "PipelineTask", "task-create must stay a pipeline");
+  assertEquals(
+    pipeline.kind,
+    "PipelineTask",
+    "task-create must stay a pipeline",
+  );
   const stages: Yaml[] = pipeline.stages ?? [];
   assert(
     stages.length >= 2,
@@ -136,7 +145,10 @@ Deno.test("task-create verifies what the turn claimed to write", () => {
 Deno.test("task-create threads the fire params into its stages", () => {
   const stages: Yaml[] = pipeline.stages ?? [];
   const first = stages[0];
-  assert(first.overrides, "first stage must thread the fire params through overrides");
+  assert(
+    first.overrides,
+    "first stage must thread the fire params through overrides",
+  );
 
   // Stages receive no params of their own and ${input.params.…} resolves only
   // on the first stage, so these have to be threaded explicitly or the agent
@@ -160,7 +172,11 @@ Deno.test("task-create threads the fire params into its stages", () => {
   const last = stages[stages.length - 1];
   const verifyDir = (last.overrides?.params ?? [])
     .find((p: Yaml) => p.name === "task_dir")?.default;
-  assertEquals(verifyDir, "${input.output.caller_context}", "verify stage task_dir");
+  assertEquals(
+    verifyDir,
+    "${input.output.caller_context}",
+    "verify stage task_dir",
+  );
 });
 
 Deno.test("auto-fix grants the diagnose-fix-land capabilities", () => {
@@ -209,7 +225,10 @@ Deno.test("the auto-fix skill names tools, not SDK methods", () => {
       "max_iterations",
     ]
   ) {
-    assert(autoFixSkill.includes(term), `skill missing required term "${term}"`);
+    assert(
+      autoFixSkill.includes(term),
+      `skill missing required term "${term}"`,
+    );
   }
   for (
     const forbidden of [

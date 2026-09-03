@@ -6,10 +6,20 @@
 // identity). Core encryption/redaction happens upstream; this task is
 // a dumb byte store.
 
-interface PutResult { ok: true }
-interface GetResult { ok: true; value: string }
-interface DeleteResult { ok: true }
-interface ErrorResult { ok: false; error: string }
+interface PutResult {
+  ok: true;
+}
+interface GetResult {
+  ok: true;
+  value: string;
+}
+interface DeleteResult {
+  ok: true;
+}
+interface ErrorResult {
+  ok: false;
+  error: string;
+}
 
 function fileFor(root: string, prefix: string, key: string): string {
   // Strip the caller-supplied prefix; the remainder must be a single safe path component.
@@ -17,10 +27,15 @@ function fileFor(root: string, prefix: string, key: string): string {
     throw new Error(`prefix must end with '/': ${JSON.stringify(prefix)}`);
   }
   if (!key.startsWith(prefix)) {
-    throw new Error(`storage key must start with ${JSON.stringify(prefix)}: ${key}`);
+    throw new Error(
+      `storage key must start with ${JSON.stringify(prefix)}: ${key}`,
+    );
   }
   const safeKey = key.slice(prefix.length);
-  if (!safeKey || safeKey.includes("/") || safeKey.includes("\\") || safeKey.includes("..")) {
+  if (
+    !safeKey || safeKey.includes("/") || safeKey.includes("\\") ||
+    safeKey.includes("..")
+  ) {
     throw new Error(`invalid storage key: ${key}`);
   }
   return `${root}/${safeKey}.bin`;
@@ -41,8 +56,9 @@ function base64Encode(b: Uint8Array): string {
   return btoa(s);
 }
 
-export default async function main({ params }: DicodeSdk):
-  Promise<PutResult | GetResult | DeleteResult | ErrorResult> {
+export default async function main(
+  { params }: DicodeSdk,
+): Promise<PutResult | GetResult | DeleteResult | ErrorResult> {
   const op = String((await params.get("op")) ?? "");
   const key = String((await params.get("key")) ?? "");
   const root = String((await params.get("root")) ?? "");

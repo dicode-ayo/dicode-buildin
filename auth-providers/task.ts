@@ -3,20 +3,24 @@ import type { DicodeSdk } from "../sdk.ts";
 // BrokerProvider is the shape returned by the relay broker's GET /providers
 // endpoint (dicode-relay >= 0.1.5).
 interface BrokerProvider {
-  key:             string;
-  pkce:            boolean;
-  scopes:          string[];
+  key: string;
+  pkce: boolean;
+  scopes: string[];
   secret_required: boolean;
-  configured:      boolean;
+  configured: boolean;
 }
 
 // fetchBrokerProviders retrieves the provider catalogue from the relay broker.
 // The endpoint is unauthenticated and returns no secret values.
-async function fetchBrokerProviders(brokerURL: string): Promise<BrokerProvider[]> {
+async function fetchBrokerProviders(
+  brokerURL: string,
+): Promise<BrokerProvider[]> {
   const base = brokerURL.replace(/\/$/, "");
   const res = await fetch(`${base}/providers`);
   if (!res.ok) {
-    throw new Error(`broker /providers returned ${res.status}: ${await res.text()}`);
+    throw new Error(
+      `broker /providers returned ${res.status}: ${await res.text()}`,
+    );
   }
   return await res.json() as BrokerProvider[];
 }
@@ -30,14 +34,17 @@ async function fetchBrokerProviders(brokerURL: string): Promise<BrokerProvider[]
 // the dashboard for every other provider. The error is surfaced in run logs
 // so operators can investigate (typical cause: missing
 // permissions.dicode.secrets_has on a forked task).
-async function checkConnected(dicode: DicodeSdk["dicode"], providerKey: string): Promise<boolean> {
+async function checkConnected(
+  dicode: DicodeSdk["dicode"],
+  providerKey: string,
+): Promise<boolean> {
   const secretName = providerKey.toUpperCase() + "_ACCESS_TOKEN";
   try {
     return await dicode.secrets.has(secretName);
   } catch (err) {
     console.error(
       `auth-providers: dicode.secrets.has(${secretName}) failed; reporting has_token=false. ` +
-      `Cause: ${err instanceof Error ? err.message : String(err)}`,
+        `Cause: ${err instanceof Error ? err.message : String(err)}`,
     );
     return false;
   }
@@ -48,7 +55,10 @@ async function checkConnected(dicode: DicodeSdk["dicode"], providerKey: string):
 // which has its own bespoke task (no template marker). Anything inherited
 // from _oauth-app is auto-discovered via list_tasks below — no need to
 // hardcode it here.
-const STANDALONE: Record<string, { webhookPath: string; label: string; color: string }> = {
+const STANDALONE: Record<
+  string,
+  { webhookPath: string; label: string; color: string }
+> = {
   openrouter: {
     webhookPath: "/hooks/openrouter-oauth",
     label: "OpenRouter",
@@ -87,15 +97,21 @@ async function scanInheritors(
   requested: Set<string>,
 ): Promise<Array<Record<string, unknown>>> {
   let tasks: Array<{
-    id: string; name: string; template?: string; webhook?: string;
-    enabled: boolean; params?: unknown;
+    id: string;
+    name: string;
+    template?: string;
+    webhook?: string;
+    enabled: boolean;
+    params?: unknown;
   }>;
   try {
     tasks = await dicode.list_tasks();
   } catch (err) {
     console.error(
       `auth-providers: dicode.list_tasks failed; BYO OAuth tasks will not appear ` +
-      `in the panel. Cause: ${err instanceof Error ? err.message : String(err)}`,
+        `in the panel. Cause: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
     );
     return [];
   }
@@ -103,11 +119,11 @@ async function scanInheritors(
   const out: Array<Record<string, unknown>> = [];
   for (const t of tasks) {
     if (t.template !== OAUTH_APP_TEMPLATE) continue;
-    if (!t.enabled) continue;                     // skip disabled inheritors
+    if (!t.enabled) continue; // skip disabled inheritors
     const key = paramDefault(t.params, "provider");
-    if (!key) continue;                           // misconfigured BYO entry
+    if (!key) continue; // misconfigured BYO entry
     if (requested.size > 0 && !requested.has(key)) continue;
-    if (!t.webhook) continue;                     // need a webhook to Connect
+    if (!t.webhook) continue; // need a webhook to Connect
     out.push({
       key,
       pkce: true,
@@ -130,7 +146,7 @@ export default async function main({ params, input, dicode }: DicodeSdk) {
   if (action === "list") {
     const requested = new Set(
       ((await params.get("providers")) ?? "")
-        .split(",").map(s => s.trim()).filter(Boolean),
+        .split(",").map((s) => s.trim()).filter(Boolean),
     );
 
     // Broker URL is optional. When relay is disabled in dicode.yaml the env
@@ -142,7 +158,7 @@ export default async function main({ params, input, dicode }: DicodeSdk) {
       const brokerProviders = await fetchBrokerProviders(brokerURL);
       const filtered = requested.size === 0
         ? brokerProviders
-        : brokerProviders.filter(p => requested.has(p.key));
+        : brokerProviders.filter((p) => requested.has(p.key));
       withStatus = await Promise.all(filtered.map(async (p) => ({
         ...p,
         has_token: await checkConnected(dicode, p.key),
@@ -179,7 +195,9 @@ export default async function main({ params, input, dicode }: DicodeSdk) {
     // double-list it.
     const seen = new Set<string>();
     const result: Array<Record<string, unknown>> = [];
-    for (const e of [...withStatus, ...standaloneEntries, ...inheritorEntries]) {
+    for (
+      const e of [...withStatus, ...standaloneEntries, ...inheritorEntries]
+    ) {
       const k = (e as { key?: string }).key;
       if (!k || seen.has(k)) continue;
       seen.add(k);
@@ -190,7 +208,8 @@ export default async function main({ params, input, dicode }: DicodeSdk) {
 
   if (action === "connect") {
     const p = String(inp?.provider ?? "");
-    const baseURL = (Deno.env.get("DICODE_BASE_URL") ?? "http://localhost:8080").replace(/\/$/, "");
+    const baseURL = (Deno.env.get("DICODE_BASE_URL") ?? "http://localhost:8080")
+      .replace(/\/$/, "");
 
     // Standalone provider (e.g. openrouter): return the webhook URL directly.
     const standalone = STANDALONE[p];
@@ -203,7 +222,9 @@ export default async function main({ params, input, dicode }: DicodeSdk) {
     try {
       const tasks = await dicode.list_tasks();
       for (const t of tasks) {
-        if (t.template !== OAUTH_APP_TEMPLATE || !t.enabled || !t.webhook) continue;
+        if (t.template !== OAUTH_APP_TEMPLATE || !t.enabled || !t.webhook) {
+          continue;
+        }
         if (paramDefault(t.params, "provider") === p) {
           return { provider: p, url: `${baseURL}${t.webhook}` };
         }
@@ -211,7 +232,7 @@ export default async function main({ params, input, dicode }: DicodeSdk) {
     } catch (err) {
       console.error(
         `auth-providers: dicode.list_tasks failed during connect; falling back to broker. ` +
-        `Cause: ${err instanceof Error ? err.message : String(err)}`,
+          `Cause: ${err instanceof Error ? err.message : String(err)}`,
       );
     }
 
@@ -221,12 +242,15 @@ export default async function main({ params, input, dicode }: DicodeSdk) {
     if (!Deno.env.get("DICODE_RELAY_BROKER_URL")) {
       throw new Error(
         `provider '${p}' requires the relay broker. Enable relay in dicode.yaml ` +
-        `or instantiate a BYO OAuth task in your own taskset (see auth/_oauth-app).`,
+          `or instantiate a BYO OAuth task in your own taskset (see auth/_oauth-app).`,
       );
     }
     const run = await dicode.run_task("buildin/auth-start", { provider: p });
-    const ret = (run as { returnValue?: { url?: string; session_id?: string } })?.returnValue;
-    if (!ret?.url) throw new Error(`buildin/auth-start did not return a url for ${p}`);
+    const ret = (run as { returnValue?: { url?: string; session_id?: string } })
+      ?.returnValue;
+    if (!ret?.url) {
+      throw new Error(`buildin/auth-start did not return a url for ${p}`);
+    }
     return { provider: p, url: ret.url, session_id: ret.session_id };
   }
 

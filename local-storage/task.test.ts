@@ -9,7 +9,7 @@ test("put + get round-trip", async () => {
   params.set("key", "run-inputs/abc");
   params.set("value", value);
   params.set("root", root);
-  let res = await runTask() as { ok: boolean };
+  let res = await runTask() as { ok: boolean; value?: string };
   assert.equal(res.ok, true);
 
   params.set("op", "get");
@@ -18,7 +18,7 @@ test("put + get round-trip", async () => {
   params.set("root", root);
   res = await runTask() as { ok: boolean; value: string };
   assert.equal(res.ok, true);
-  assert.equal((res as any).value, value);
+  assert.equal(res.value, value);
 });
 
 test("get of missing key returns ok with empty value", async () => {
@@ -28,7 +28,7 @@ test("get of missing key returns ok with empty value", async () => {
   params.set("root", root);
   const res = await runTask() as { ok: boolean; value: string };
   assert.equal(res.ok, true);
-  assert.equal((res as any).value, "");
+  assert.equal(res.value, "");
 });
 
 test("delete is idempotent", async () => {
@@ -96,7 +96,7 @@ test("custom prefix: put + get + delete", async () => {
   params.set("value", value);
   params.set("root", root);
   params.set("prefix", "relay/");
-  let res = await runTask() as { ok: boolean };
+  let res = await runTask() as { ok: boolean; value?: string };
   assert.equal(res.ok, true);
 
   // get
@@ -107,7 +107,7 @@ test("custom prefix: put + get + delete", async () => {
   params.set("prefix", "relay/");
   res = await runTask() as { ok: boolean; value: string };
   assert.equal(res.ok, true);
-  assert.equal((res as any).value, value);
+  assert.equal(res.value, value);
 
   // delete
   params.set("op", "delete");
@@ -125,7 +125,7 @@ test("custom prefix: put + get + delete", async () => {
   params.set("prefix", "relay/");
   res = await runTask() as { ok: boolean; value: string };
   assert.equal(res.ok, true);
-  assert.equal((res as any).value, "");
+  assert.equal(res.value, "");
 });
 
 test("put requires value", async () => {

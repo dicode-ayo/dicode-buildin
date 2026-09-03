@@ -33,7 +33,12 @@ test("removes expired rows", async () => {
   });
 
   params.set("retention_seconds", "2592000");
-  const res = await runTask() as { ok: boolean; removed: number; errors: number; remaining: number };
+  const res = await runTask() as {
+    ok: boolean;
+    removed: number;
+    errors: number;
+    remaining: number;
+  };
   assert.equal(res.ok, true);
   assert.equal(res.removed, 2);
   assert.equal(res.errors, 0);
@@ -50,7 +55,12 @@ test("returns ok with 0 when nothing to clean", async () => {
   });
 
   params.set("retention_seconds", "2592000");
-  const res = await runTask() as { ok: boolean; removed: number; errors: number; remaining: number };
+  const res = await runTask() as {
+    ok: boolean;
+    removed: number;
+    errors: number;
+    remaining: number;
+  };
   assert.equal(res.ok, true);
   assert.equal(res.removed, 0);
   assert.equal(res.errors, 0);
@@ -64,7 +74,12 @@ test("returns ok with 0 when list_expired returns null", async () => {
   });
 
   params.set("retention_seconds", "2592000");
-  const res = await runTask() as { ok: boolean; removed: number; errors: number; remaining: number };
+  const res = await runTask() as {
+    ok: boolean;
+    removed: number;
+    errors: number;
+    remaining: number;
+  };
   assert.equal(res.ok, true);
   assert.equal(res.removed, 0);
   assert.equal(res.errors, 0);
@@ -75,7 +90,7 @@ test("counts errors when delete_input throws", async () => {
   setRunsMock({
     list_expired: async () => [
       { runID: "good", storageKey: "run-inputs/good", storedAt: 100 },
-      { runID: "bad",  storageKey: "run-inputs/bad",  storedAt: 100 },
+      { runID: "bad", storageKey: "run-inputs/bad", storedAt: 100 },
     ],
     delete_input: async (runID: string) => {
       if (runID === "bad") throw new Error("storage backend down");
@@ -84,7 +99,12 @@ test("counts errors when delete_input throws", async () => {
   });
 
   params.set("retention_seconds", "2592000");
-  const res = await runTask() as { ok: boolean; removed: number; errors: number; remaining: number };
+  const res = await runTask() as {
+    ok: boolean;
+    removed: number;
+    errors: number;
+    remaining: number;
+  };
   assert.equal(res.ok, false);
   assert.equal(res.removed, 1);
   assert.equal(res.errors, 1);
@@ -149,7 +169,12 @@ test("uses default retention_seconds from task.yaml when param not set", async (
     delete_input: async () => ({ ok: true }),
   });
 
-  const res = await runTask() as { ok: boolean; removed: number; errors: number; remaining: number };
+  const res = await runTask() as {
+    ok: boolean;
+    removed: number;
+    errors: number;
+    remaining: number;
+  };
   assert.equal(res.ok, true);
   assert.equal(res.removed, 0);
   assert.equal(res.errors, 0);
@@ -179,7 +204,12 @@ test("continues deleting remaining rows after a failure", async () => {
   });
 
   params.set("retention_seconds", "2592000");
-  const res = await runTask() as { ok: boolean; removed: number; errors: number; remaining: number };
+  const res = await runTask() as {
+    ok: boolean;
+    removed: number;
+    errors: number;
+    remaining: number;
+  };
   assert.equal(res.ok, false);
   assert.equal(res.removed, 2);
   assert.equal(res.errors, 1);

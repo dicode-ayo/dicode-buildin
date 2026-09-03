@@ -21,7 +21,10 @@ export function isRetryableStatus(status: number): boolean {
  *  hint; retrying earlier than it asked spends an attempt on a certain second
  *  429, so a hint longer than the task can absorb means stop rather than
  *  retry early. */
-export function backoffDelayMs(attempt: number, retryAfterSec?: number): number | null {
+export function backoffDelayMs(
+  attempt: number,
+  retryAfterSec?: number,
+): number | null {
   if (retryAfterSec && retryAfterSec > 0) {
     const wait = retryAfterSec * 1000;
     return wait > MAX_DELAY_MS ? null : wait;

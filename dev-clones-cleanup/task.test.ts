@@ -21,7 +21,9 @@ async function makeCloneTree(
   entries: Array<{ source: string; runID: string }>,
 ): Promise<void> {
   for (const { source, runID } of entries) {
-    await Deno.mkdir(`${dataDir}/dev-clones/${source}/${runID}`, { recursive: true });
+    await Deno.mkdir(`${dataDir}/dev-clones/${source}/${runID}`, {
+      recursive: true,
+    });
   }
 }
 
@@ -32,7 +34,9 @@ async function listCloneDirs(dataDir: string): Promise<string[]> {
   try {
     for await (const sourceEntry of Deno.readDir(root)) {
       if (!sourceEntry.isDirectory) continue;
-      for await (const runEntry of Deno.readDir(`${root}/${sourceEntry.name}`)) {
+      for await (
+        const runEntry of Deno.readDir(`${root}/${sourceEntry.name}`)
+      ) {
         if (runEntry.isDirectory) result.push(runEntry.name);
       }
     }
@@ -49,7 +53,7 @@ test("removes orphan clones, keeps active run", async () => {
     await makeCloneTree(dataDir, [
       { source: "buildin", runID: "run-active-1" },
       { source: "buildin", runID: "run-orphan-1" },
-      { source: "myrepo",  runID: "run-orphan-2" },
+      { source: "myrepo", runID: "run-orphan-2" },
     ]);
 
     env.set("DICODE_DATADIR", dataDir);
@@ -59,11 +63,15 @@ test("removes orphan clones, keeps active run", async () => {
     dicode.get_runs = async (_id: string) => {
       return [
         { ID: "run-active-1", Status: "running" },
-        { ID: "run-done-1",   Status: "success" },
+        { ID: "run-done-1", Status: "success" },
       ];
     };
 
-    const result = await runTask() as { ok: boolean; removed: number; kept: number };
+    const result = await runTask() as {
+      ok: boolean;
+      removed: number;
+      kept: number;
+    };
 
     assert.equal(result.ok, true);
     assert.equal(result.removed, 2);
@@ -93,18 +101,25 @@ test("protects a suspended run's clone, sweeps a terminal run's clone", async ()
     dicode.get_runs = async (_id: string) => {
       return [
         { ID: "run-suspended-1", Status: "suspended" },
-        { ID: "run-failed-1",    Status: "failed" },
+        { ID: "run-failed-1", Status: "failed" },
       ];
     };
 
-    const result = await runTask() as { ok: boolean; removed: number; kept: number };
+    const result = await runTask() as {
+      ok: boolean;
+      removed: number;
+      kept: number;
+    };
 
     assert.equal(result.ok, true);
     assert.equal(result.removed, 1);
     assert.equal(result.kept, 1);
 
     const remaining = await listCloneDirs(dataDir);
-    assert.equal(JSON.stringify(remaining), JSON.stringify(["run-suspended-1"]));
+    assert.equal(
+      JSON.stringify(remaining),
+      JSON.stringify(["run-suspended-1"]),
+    );
   } finally {
     await Deno.remove(dataDir, { recursive: true });
   }
@@ -162,14 +177,23 @@ test("non-directory entries under source dir are ignored", async () => {
   try {
     await Deno.mkdir(`${dataDir}/dev-clones/mysource`, { recursive: true });
     // A plain file sitting alongside the run dirs should be skipped.
-    await Deno.writeTextFile(`${dataDir}/dev-clones/mysource/not-a-run.txt`, "stale file");
-    await Deno.mkdir(`${dataDir}/dev-clones/mysource/real-run`, { recursive: true });
+    await Deno.writeTextFile(
+      `${dataDir}/dev-clones/mysource/not-a-run.txt`,
+      "stale file",
+    );
+    await Deno.mkdir(`${dataDir}/dev-clones/mysource/real-run`, {
+      recursive: true,
+    });
 
     env.set("DICODE_DATADIR", dataDir);
     dicode.list_tasks = async () => [{ id: "some-task" }];
     dicode.get_runs = async () => [];
 
-    const result = await runTask() as { ok: boolean; removed: number; kept: number };
+    const result = await runTask() as {
+      ok: boolean;
+      removed: number;
+      kept: number;
+    };
 
     assert.equal(result.ok, true);
     // Only the "real-run" dir counts; the .txt file is silently skipped.

@@ -1,4 +1,4 @@
-import { LitElement, html, css } from 'https://esm.sh/lit@3';
+import { css, html, LitElement } from "https://esm.sh/lit@3";
 
 // <dc-empty-state> — Stage 1 primitive (#93): the centered "nothing here"
 // placeholder duplicated inline in dc-task-list.js
@@ -59,17 +59,21 @@ class DcEmptyState extends LitElement {
 
   constructor() {
     super();
-    this.icon = '';
-    this.message = '';
+    this.icon = "";
+    this.message = "";
   }
 
   render() {
     return html`
-      <slot name="icon">${this.icon ? html`<div class="icon" aria-hidden="true">${this.icon}</div>` : ''}</slot>
+      <slot name="icon">${this.icon
+        ? html`
+          <div class="icon" aria-hidden="true">${this.icon}</div>
+        `
+        : ""}</slot>
       <div class="message">${this.message}</div>
       <slot></slot>
     `;
   }
 }
 
-customElements.define('dc-empty-state', DcEmptyState);
+customElements.define("dc-empty-state", DcEmptyState);

@@ -10,7 +10,7 @@ test("put + get round-trip", async () => {
   params.set("key", "greeting");
   params.set("value", value);
   params.set("root", root);
-  let res = await runTask() as { ok: boolean };
+  let res = await runTask() as { ok: boolean; value?: string };
   assert.equal(res.ok, true);
 
   params.set("op", "get");
@@ -18,7 +18,7 @@ test("put + get round-trip", async () => {
   params.set("value", "");
   res = await runTask() as { ok: boolean; value: string };
   assert.equal(res.ok, true);
-  assert.equal((res as any).value, value);
+  assert.equal(res.value, value);
 });
 
 test("get of missing key returns ok with empty value", async () => {
@@ -29,7 +29,7 @@ test("get of missing key returns ok with empty value", async () => {
   params.set("root", root);
   const res = await runTask() as { ok: boolean; value: string };
   assert.equal(res.ok, true);
-  assert.equal((res as any).value, "");
+  assert.equal(res.value, "");
 });
 
 test("delete is idempotent", async () => {
@@ -59,7 +59,7 @@ test("put then delete then get returns empty", async () => {
   params.set("op", "get");
   const res = await runTask() as { ok: boolean; value: string };
   assert.equal(res.ok, true);
-  assert.equal((res as any).value, "");
+  assert.equal(res.value, "");
 });
 
 test("rejects path traversal in key", async () => {
@@ -107,14 +107,14 @@ test("namespace supports nested task-id-style segments", async () => {
   params.set("key", "k");
   params.set("value", value);
   params.set("root", root);
-  let res = await runTask() as { ok: boolean };
+  let res = await runTask() as { ok: boolean; value?: string };
   assert.equal(res.ok, true);
 
   params.set("op", "get");
   params.set("value", "");
   res = await runTask() as { ok: boolean; value: string };
   assert.equal(res.ok, true);
-  assert.equal((res as any).value, value);
+  assert.equal(res.value, value);
 });
 
 test("namespaces are isolated from each other", async () => {

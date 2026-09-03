@@ -41,7 +41,9 @@ const TASK_FILES = new Set([
 // not to any task, so the depth is a boundary and not a formality.
 export function assertTaskFilePath(path: string, roots: string[]): void {
   if (!path.startsWith("/")) {
-    throw new Error(`invalid path: must be absolute (got ${JSON.stringify(path)})`);
+    throw new Error(
+      `invalid path: must be absolute (got ${JSON.stringify(path)})`,
+    );
   }
   if (path.includes("\0")) {
     throw new Error("invalid path: contains NUL byte");
@@ -49,7 +51,9 @@ export function assertTaskFilePath(path: string, roots: string[]): void {
   const root = roots.find((r) => path.startsWith(r.replace(/\/+$/, "") + "/"));
   if (!root) {
     throw new Error(
-      `invalid path: ${JSON.stringify(path)} is outside the writable roots (${roots.join(", ")})`,
+      `invalid path: ${JSON.stringify(path)} is outside the writable roots (${
+        roots.join(", ")
+      })`,
     );
   }
   // Exactly <root>/<task>/<file>: the shape the resolver reads. Shallower is
@@ -59,18 +63,24 @@ export function assertTaskFilePath(path: string, roots: string[]): void {
   const segments = path.slice(root.replace(/\/+$/, "").length + 1).split("/");
   if (segments.length !== 2) {
     throw new Error(
-      `invalid path: ${JSON.stringify(path)} — a task's files live directly in a directory of their own under ${root}`,
+      `invalid path: ${
+        JSON.stringify(path)
+      } — a task's files live directly in a directory of their own under ${root}`,
     );
   }
   for (const segment of segments) {
     if (segment === "" || segment === "." || segment === "..") {
-      throw new Error(`invalid path: empty or relative segment in ${JSON.stringify(path)}`);
+      throw new Error(
+        `invalid path: empty or relative segment in ${JSON.stringify(path)}`,
+      );
     }
   }
   const name = segments[segments.length - 1];
   if (!TASK_FILES.has(name)) {
     throw new Error(
-      `invalid path: ${JSON.stringify(name)} is not a task file — allowed: ${[...TASK_FILES].join(", ")}`,
+      `invalid path: ${JSON.stringify(name)} is not a task file — allowed: ${
+        [...TASK_FILES].join(", ")
+      }`,
     );
   }
 }
@@ -92,7 +102,9 @@ export function assertTaskDocument(path: string, content: string): void {
   const split = content.match(/[\u0085\u2028\u2029]/);
   if (split) {
     throw new Error(
-      `invalid task.yaml: contains U+${split[0].codePointAt(0)!.toString(16).toUpperCase().padStart(4, "0")}, ` +
+      `invalid task.yaml: contains U+${
+        split[0].codePointAt(0)!.toString(16).toUpperCase().padStart(4, "0")
+      }, ` +
         `which the daemon's YAML parser reads as a line break and this one does not`,
     );
   }
@@ -100,20 +112,28 @@ export function assertTaskDocument(path: string, content: string): void {
   try {
     docs = parseYamlAll(content) as unknown[];
   } catch (e) {
-    throw new Error(`invalid task.yaml: ${e instanceof Error ? e.message : String(e)}`);
+    throw new Error(
+      `invalid task.yaml: ${e instanceof Error ? e.message : String(e)}`,
+    );
   }
   if (docs.length !== 1) {
-    throw new Error(`invalid task.yaml: expected one document, got ${docs.length}`);
+    throw new Error(
+      `invalid task.yaml: expected one document, got ${docs.length}`,
+    );
   }
   const kind = (docs[0] as Record<string, unknown> | null)?.kind;
   if (kind !== "Task") {
     throw new Error(
-      `invalid task.yaml: kind is ${JSON.stringify(kind ?? null)}, and this tool writes tasks only`,
+      `invalid task.yaml: kind is ${
+        JSON.stringify(kind ?? null)
+      }, and this tool writes tasks only`,
     );
   }
 }
 
-export default async function main({ params }: DicodeSdk): Promise<WriteResult> {
+export default async function main(
+  { params }: DicodeSdk,
+): Promise<WriteResult> {
   const content = await params.get("content");
   if (content === null) {
     throw new Error("missing required param: content");
@@ -129,7 +149,9 @@ export default async function main({ params }: DicodeSdk): Promise<WriteResult> 
     .map((r) => r.trim())
     .filter(Boolean);
   if (roots.length === 0) {
-    throw new Error("DICODE_TASK_FILE_ROOTS is not set — the task has no writable root");
+    throw new Error(
+      "DICODE_TASK_FILE_ROOTS is not set — the task has no writable root",
+    );
   }
   assertTaskFilePath(path, roots);
   assertTaskDocument(path, content);

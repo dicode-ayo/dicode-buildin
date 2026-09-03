@@ -1,5 +1,5 @@
-import { LitElement, html, css } from 'https://esm.sh/lit@3';
-import './dc-empty-state.js';
+import { css, html, LitElement } from "https://esm.sh/lit@3";
+import "./dc-empty-state.js";
 
 // <dc-table> — Stage 1 primitive (#93): a bordered table shell around
 // slotted <tr> rows, generalizing the `<table>...<tbody>${rows.map(...)}` +
@@ -44,14 +44,16 @@ class DcTable extends LitElement {
     // kebab-case insertion), so without this a plain `empty-message="..."`
     // attribute wouldn't bind and a consumer would have to reach for the
     // less-common `.emptyMessage=${...}` JS-property binding instead.
-    emptyMessage: { type: String, attribute: 'empty-message' },
-    emptyIcon: { type: String, attribute: 'empty-icon' },
+    emptyMessage: { type: String, attribute: "empty-message" },
+    emptyIcon: { type: String, attribute: "empty-icon" },
     _hasRows: { state: true },
     _hasHead: { state: true },
   };
 
   static styles = css`
-    :host { display: block; }
+    :host {
+      display: block;
+    }
     .table {
       display: table;
       width: 100%;
@@ -61,8 +63,12 @@ class DcTable extends LitElement {
       border-radius: var(--dicode-radius-md);
       overflow: hidden;
     }
-    .thead { display: table-header-group; }
-    .tbody { display: table-row-group; }
+    .thead {
+      display: table-header-group;
+    }
+    .tbody {
+      display: table-row-group;
+    }
     .loading {
       padding: var(--dicode-space-lg);
       text-align: center;
@@ -74,8 +80,8 @@ class DcTable extends LitElement {
   constructor() {
     super();
     this.loading = false;
-    this.emptyMessage = 'Nothing to show.';
-    this.emptyIcon = '';
+    this.emptyMessage = "Nothing to show.";
+    this.emptyIcon = "";
     // Assume non-empty until the initial light-DOM check runs in
     // connectedCallback, so a table that *does* have rows never flashes
     // the empty state on first paint.
@@ -99,7 +105,7 @@ class DcTable extends LitElement {
   // showing a one-render flash of the stale (pre-population) empty state.
   willUpdate(changedProperties) {
     super.willUpdate(changedProperties);
-    if (changedProperties.get('loading') === true && !this.loading) {
+    if (changedProperties.get("loading") === true && !this.loading) {
       this._recomputeHasRows();
     }
   }
@@ -131,7 +137,7 @@ class DcTable extends LitElement {
     let hasRows = false;
     let hasHead = false;
     for (const el of this.children) {
-      const isHead = el.getAttribute('slot') === 'head';
+      const isHead = el.getAttribute("slot") === "head";
       if (isHead) hasHead = true;
       else hasRows = true;
       this._stampRowRoles(el, isHead);
@@ -148,19 +154,23 @@ class DcTable extends LitElement {
   // tree is the same everywhere. A <th> in the head slot is a column
   // header; elsewhere it labels its own row.
   _stampRowRoles(row, isHead) {
-    if (row.tagName !== 'TR') return;
-    row.setAttribute('role', 'row');
+    if (row.tagName !== "TR") return;
+    row.setAttribute("role", "row");
     for (const cell of row.children) {
-      if (cell.tagName === 'TH') {
-        cell.setAttribute('role', isHead ? 'columnheader' : 'rowheader');
-      } else if (cell.tagName === 'TD') {
-        cell.setAttribute('role', 'cell');
+      if (cell.tagName === "TH") {
+        cell.setAttribute("role", isHead ? "columnheader" : "rowheader");
+      } else if (cell.tagName === "TD") {
+        cell.setAttribute("role", "cell");
       }
     }
   }
 
   render() {
-    if (this.loading) return html`<div class="loading">Loading…</div>`;
+    if (this.loading) {
+      return html`
+        <div class="loading">Loading…</div>
+      `;
+    }
 
     if (!this._hasRows) {
       // A head row can be present even with zero body rows (a consumer
@@ -174,23 +184,34 @@ class DcTable extends LitElement {
       // stays mounted so its slotchange listener still fires when rows
       // are appended later.
       return html`
-        ${this._hasHead ? html`
-          <div class="table" role="table">
-            <div class="thead" role="rowgroup"><slot name="head" @slotchange=${this._onSlotChange}></slot></div>
-          </div>
-        ` : html`<slot name="head" @slotchange=${this._onSlotChange}></slot>`}
-        <slot @slotchange=${this._onSlotChange}></slot>
-        <dc-empty-state icon=${this.emptyIcon} message=${this.emptyMessage}></dc-empty-state>
+        ${this._hasHead
+          ? html`
+            <div class="table" role="table">
+              <div class="thead" role="rowgroup">
+                <slot name="head" @slotchange="${this._onSlotChange}"></slot>
+              </div>
+            </div>
+          `
+          : html`
+            <slot name="head" @slotchange="${this._onSlotChange}"></slot>
+          `}
+        <slot @slotchange="${this._onSlotChange}"></slot>
+        <dc-empty-state icon="${this.emptyIcon}" message="${this
+          .emptyMessage}"></dc-empty-state>
       `;
     }
 
     return html`
       <div class="table" role="table">
-        <div class="thead" role="rowgroup"><slot name="head" @slotchange=${this._onSlotChange}></slot></div>
-        <div class="tbody" role="rowgroup"><slot @slotchange=${this._onSlotChange}></slot></div>
+        <div class="thead" role="rowgroup">
+          <slot name="head" @slotchange="${this._onSlotChange}"></slot>
+        </div>
+        <div class="tbody" role="rowgroup">
+          <slot @slotchange="${this._onSlotChange}"></slot>
+        </div>
       </div>
     `;
   }
 }
 
-customElements.define('dc-table', DcTable);
+customElements.define("dc-table", DcTable);

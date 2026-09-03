@@ -114,7 +114,11 @@ function freshDicode(): MockDicode {
       set_dev_mode: async (name: string, opts: Record<string, unknown>) => {
         devModeCalls.push({ name, ...opts });
         return opts.enabled
-          ? { ok: true, dev_root_path: "/dev-clones/test/taskset.yaml", clone_path: "/dev-clones/test" }
+          ? {
+            ok: true,
+            dev_root_path: "/dev-clones/test/taskset.yaml",
+            clone_path: "/dev-clones/test",
+          }
           : { ok: true };
       },
     },
@@ -149,7 +153,8 @@ function resetMocks() {
   state.input = undefined;
   // Re-expose the fresh mutable object under globalThis.dicode so tests
   // picking it up after resetMocks see the cleared defaults.
-  (globalThis as unknown as { dicode: MockDicode; input: unknown }).dicode = state.dicode;
+  (globalThis as unknown as { dicode: MockDicode; input: unknown }).dicode =
+    state.dicode;
   (globalThis as unknown as { input: unknown }).input = undefined;
 }
 
@@ -173,23 +178,37 @@ interface MockKV {
 }
 
 const params: MockParams = {
-  set(k, v) { state.params.set(k, v); },
+  set(k, v) {
+    state.params.set(k, v);
+  },
   // eslint-disable-next-line @typescript-eslint/require-await
-  async get(k) { return state.params.get(k) ?? null; },
+  async get(k) {
+    return state.params.get(k) ?? null;
+  },
   // eslint-disable-next-line @typescript-eslint/require-await
-  async all() { return Object.fromEntries(state.params); },
+  async all() {
+    return Object.fromEntries(state.params);
+  },
 };
 
 const env: MockEnv = {
-  set(k, v) { state.env.set(k, v); },
+  set(k, v) {
+    state.env.set(k, v);
+  },
 };
 
 const kv: MockKV = {
-  set(k, v) { state.kv.set(k, v); },
+  set(k, v) {
+    state.kv.set(k, v);
+  },
   // eslint-disable-next-line @typescript-eslint/require-await
-  async get(k) { return state.kv.get(k); },
+  async get(k) {
+    return state.kv.get(k);
+  },
   // eslint-disable-next-line @typescript-eslint/require-await
-  async delete(k) { state.kv.delete(k); },
+  async delete(k) {
+    state.kv.delete(k);
+  },
   // eslint-disable-next-line @typescript-eslint/require-await
   async list(prefix = "") {
     const out: Record<string, unknown> = {};
@@ -203,7 +222,8 @@ const kv: MockKV = {
 function globMatch(pattern: string, url: string): boolean {
   if (pattern === url) return true;
   if (!pattern.includes("*")) return false;
-  const re = "^" + pattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*") + "$";
+  const re = "^" +
+    pattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*") + "$";
   return new RegExp(re).test(url);
 }
 
@@ -218,10 +238,22 @@ interface MockHttp {
 
 const http: MockHttp = {
   mock(method, pattern, response) {
-    state.httpMocks.push({ method, pattern, response, oneShot: false, consumed: false });
+    state.httpMocks.push({
+      method,
+      pattern,
+      response,
+      oneShot: false,
+      consumed: false,
+    });
   },
   mockOnce(method, pattern, response) {
-    state.httpMocks.push({ method, pattern, response, oneShot: true, consumed: false });
+    state.httpMocks.push({
+      method,
+      pattern,
+      response,
+      oneShot: true,
+      consumed: false,
+    });
   },
   lastRequestBody(method, pattern) {
     for (let i = state.httpCalls.length - 1; i >= 0; i--) {
@@ -244,7 +276,12 @@ function deepEq(a: unknown, b: unknown): boolean {
   const kb = Object.keys(b as object);
   if (ka.length !== kb.length) return false;
   for (const k of ka) {
-    if (!deepEq((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k])) return false;
+    if (
+      !deepEq(
+        (a as Record<string, unknown>)[k],
+        (b as Record<string, unknown>)[k],
+      )
+    ) return false;
   }
   return true;
 }
@@ -260,7 +297,11 @@ interface MockAssert {
 
 const assert: MockAssert = {
   equal(a, b, msg) {
-    if (!deepEq(a, b)) throw new Error(msg ?? `assert.equal: ${JSON.stringify(a)} !== ${JSON.stringify(b)}`);
+    if (!deepEq(a, b)) {
+      throw new Error(
+        msg ?? `assert.equal: ${JSON.stringify(a)} !== ${JSON.stringify(b)}`,
+      );
+    }
   },
   ok(v, msg) {
     if (!v) throw new Error(msg ?? `assert.ok: got ${JSON.stringify(v)}`);
@@ -272,26 +313,52 @@ const assert: MockAssert = {
     } catch (e) {
       thrown = e;
     }
-    if (thrown === undefined) throw new Error("assert.throws: function did not throw");
+    if (thrown === undefined) {
+      throw new Error("assert.throws: function did not throw");
+    }
     if (pattern) {
       const msg = (thrown as Error)?.message ?? String(thrown);
       const re = pattern instanceof RegExp ? pattern : new RegExp(pattern);
-      if (!re.test(msg)) throw new Error(`assert.throws: thrown ${JSON.stringify(msg)} does not match ${pattern}`);
+      if (!re.test(msg)) {
+        throw new Error(
+          `assert.throws: thrown ${
+            JSON.stringify(msg)
+          } does not match ${pattern}`,
+        );
+      }
     }
   },
   httpCalled(method, pattern) {
-    const hit = state.httpCalls.some((c) => c.method === method && globMatch(pattern, c.url));
-    if (!hit) throw new Error(`assert.httpCalled: no ${method} ${pattern} in ${JSON.stringify(state.httpCalls.map((c) => c.method + " " + c.url))}`);
+    const hit = state.httpCalls.some((c) =>
+      c.method === method && globMatch(pattern, c.url)
+    );
+    if (!hit) {
+      throw new Error(
+        `assert.httpCalled: no ${method} ${pattern} in ${
+          JSON.stringify(state.httpCalls.map((c) => c.method + " " + c.url))
+        }`,
+      );
+    }
   },
   httpNotCalled(method, pattern) {
-    const hit = state.httpCalls.some((c) => c.method === method && globMatch(pattern, c.url));
-    if (hit) throw new Error(`assert.httpNotCalled: unexpected ${method} ${pattern}`);
+    const hit = state.httpCalls.some((c) =>
+      c.method === method && globMatch(pattern, c.url)
+    );
+    if (hit) {
+      throw new Error(`assert.httpNotCalled: unexpected ${method} ${pattern}`);
+    }
   },
   httpCalledWith(method, url, opts) {
-    const match = state.httpCalls.find((c) => c.method === method && globMatch(url, c.url));
+    const match = state.httpCalls.find((c) =>
+      c.method === method && globMatch(url, c.url)
+    );
     if (!match) throw new Error(`assert.httpCalledWith: no ${method} ${url}`);
     if (opts.body !== undefined && !deepEq(match.body, opts.body)) {
-      throw new Error(`assert.httpCalledWith: body ${JSON.stringify(match.body)} !== ${JSON.stringify(opts.body)}`);
+      throw new Error(
+        `assert.httpCalledWith: body ${JSON.stringify(match.body)} !== ${
+          JSON.stringify(opts.body)
+        }`,
+      );
     }
   },
 };
@@ -304,14 +371,26 @@ async function mockedFetch(
   input: string | URL | Request,
   init?: RequestInit,
 ): Promise<Response> {
-  const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
-  const method = (init?.method ?? (input instanceof Request ? input.method : "GET")).toUpperCase();
+  const url = typeof input === "string"
+    ? input
+    : input instanceof URL
+    ? input.toString()
+    : input.url;
+  const method =
+    (init?.method ?? (input instanceof Request ? input.method : "GET"))
+      .toUpperCase();
 
   let body: unknown = undefined;
   if (init?.body && typeof init.body === "string") {
-    try { body = JSON.parse(init.body); } catch { body = init.body; }
+    try {
+      body = JSON.parse(init.body);
+    } catch {
+      body = init.body;
+    }
   } else if (input instanceof Request) {
-    try { body = await input.clone().json(); } catch { /* not json */ }
+    try {
+      body = await input.clone().json();
+    } catch { /* not json */ }
   }
 
   state.httpCalls.push({ method, url, body });
@@ -327,13 +406,18 @@ async function mockedFetch(
       : JSON.stringify(m.response.body ?? null);
     return new Response(responseBody, {
       status: m.response.status,
-      headers: { "content-type": "application/json", ...(m.response.headers ?? {}) },
+      headers: {
+        "content-type": "application/json",
+        ...(m.response.headers ?? {}),
+      },
     });
   }
 
   // No mock matched — either fail loudly (typical) or fall through to real
   // fetch (for tests that want real-network behaviour). We fail loudly.
-  throw new Error(`[sdk-test] no mock matches ${method} ${url} (httpCalls=${state.httpCalls.length})`);
+  throw new Error(
+    `[sdk-test] no mock matches ${method} ${url} (httpCalls=${state.httpCalls.length})`,
+  );
 }
 
 // ─── harness setup ───────────────────────────────────────────────────────
@@ -346,7 +430,11 @@ let taskMain: ((sdk: unknown) => unknown) | null = null;
 // Tests opt into the dynamic nature of the tasks they cover.
 // deno-lint-ignore no-explicit-any
 async function runTask(): Promise<any> {
-  if (!taskMain) throw new Error("runTask: setupHarness(import.meta.url) must be awaited before test() runs");
+  if (!taskMain) {
+    throw new Error(
+      "runTask: setupHarness(import.meta.url) must be awaited before test() runs",
+    );
+  }
   // Pull the freshest globalThis.input so tests can assign it directly
   // without going through a setter — matches the documented harness API.
   const liveInput = (globalThis as unknown as { input: unknown }).input;
@@ -354,7 +442,13 @@ async function runTask(): Promise<any> {
     params,
     kv,
     input: liveInput ?? state.input,
-    output: { html: async () => {}, text: async () => {}, json: async () => {}, image: async () => {}, file: async () => {} },
+    output: {
+      html: async () => {},
+      text: async () => {},
+      json: async () => {},
+      image: async () => {},
+      file: async () => {},
+    },
     mcp: { list_tools: async () => [], call: async () => ({}) },
     dicode: state.dicode,
   };
@@ -375,23 +469,31 @@ export async function setupHarness(testFileUrl: string): Promise<void> {
   try {
     const yamlUrl = new URL("./task.yaml", testFileUrl);
     const yamlText = await Deno.readTextFile(yamlUrl);
-    const spec = parseYaml(yamlText) as { params?: Record<string, { default?: unknown }> };
+    const spec = parseYaml(yamlText) as {
+      params?: Record<string, { default?: unknown }>;
+    };
     if (spec?.params) {
       state.paramDefaults.clear();
       for (const [name, def] of Object.entries(spec.params)) {
-        if (def && typeof def === "object" && "default" in def && def.default !== undefined) {
+        if (
+          def && typeof def === "object" && "default" in def &&
+          def.default !== undefined
+        ) {
           state.paramDefaults.set(name, String(def.default));
         }
       }
     }
   } catch (e) {
-    console.warn(`[sdk-test] could not load task.yaml defaults: ${(e as Error).message}`);
+    console.warn(
+      `[sdk-test] could not load task.yaml defaults: ${(e as Error).message}`,
+    );
   }
 
   // Intercept Deno.env.get — production tasks read version etc. this way.
   const origEnvGet = Deno.env.get.bind(Deno.env);
-  (Deno.env as unknown as { get: (k: string) => string | undefined }).get = (k: string) =>
-    state.env.get(k) ?? origEnvGet(k);
+  (Deno.env as unknown as { get: (k: string) => string | undefined }).get = (
+    k: string,
+  ) => state.env.get(k) ?? origEnvGet(k);
 
   // Intercept fetch so http.mock actually bites.
   (globalThis as unknown as { fetch: typeof fetch }).fetch = mockedFetch;
@@ -417,30 +519,24 @@ export async function setupHarness(testFileUrl: string): Promise<void> {
   const mod = await import(state.taskModuleUrl);
   taskMain = mod.default as (sdk: unknown) => unknown;
   if (typeof taskMain !== "function") {
-    throw new Error(`setupHarness: ${state.taskModuleUrl} has no default export function`);
+    throw new Error(
+      `setupHarness: ${state.taskModuleUrl} has no default export function`,
+    );
   }
 }
 
 // Type declarations for the injected globals so task.test.ts passes type
 // checks under Deno's strict mode. The values are set by setupHarness.
 declare global {
-  // deno-lint-ignore no-var
   var test: (name: string, fn: () => void | Promise<void>) => void;
-  // deno-lint-ignore no-var
   var params: MockParams;
-  // deno-lint-ignore no-var
   var env: MockEnv;
-  // deno-lint-ignore no-var
   var kv: MockKV;
-  // deno-lint-ignore no-var
   var http: MockHttp;
-  // deno-lint-ignore no-var
   var assert: MockAssert;
-  // deno-lint-ignore no-var no-explicit-any
+  // deno-lint-ignore no-explicit-any
   var runTask: () => Promise<any>;
-  // deno-lint-ignore no-var
   var dicode: MockDicode;
-  // deno-lint-ignore no-var
   var input: unknown;
 }
 

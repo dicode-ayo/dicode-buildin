@@ -64,7 +64,9 @@ while (Date.now() < deadline) {
     missing = expected.filter((id) => !have.has(id));
     if (missing.length === 0) break;
   } catch (err) {
-    missing = [`(registry unreachable: ${err instanceof Error ? err.message : err})`];
+    missing = [
+      `(registry unreachable: ${err instanceof Error ? err.message : err})`,
+    ];
   }
   await new Promise((r) => setTimeout(r, 500));
 }
@@ -90,8 +92,11 @@ const envValue = (spec: Json, name: string) =>
   const spec = await getTask("buildin/write-task-file");
   const fs: Json[] = spec.permissions?.fs ?? [];
   check(
-    fs.length === 1 && String(fs[0].Path).endsWith("/ai-tasks") && fs[0].Permission === "rw",
-    `write-task-file fs grants = ${JSON.stringify(fs)}, want exactly one rw grant on \${DATADIR}/ai-tasks`,
+    fs.length === 1 && String(fs[0].Path).endsWith("/ai-tasks") &&
+      fs[0].Permission === "rw",
+    `write-task-file fs grants = ${
+      JSON.stringify(fs)
+    }, want exactly one rw grant on \${DATADIR}/ai-tasks`,
   );
 
   // The grant is the outer boundary; the task's own path check is the inner
@@ -101,7 +106,9 @@ const envValue = (spec: Json, name: string) =>
   const roots = envValue(spec, "DICODE_TASK_FILE_ROOTS");
   check(
     typeof roots === "string" && roots.endsWith("/ai-tasks"),
-    `write-task-file DICODE_TASK_FILE_ROOTS = ${JSON.stringify(roots)}, want \${DATADIR}/ai-tasks`,
+    `write-task-file DICODE_TASK_FILE_ROOTS = ${
+      JSON.stringify(roots)
+    }, want \${DATADIR}/ai-tasks`,
   );
   check(
     !param(spec, "roots"),
@@ -122,7 +129,9 @@ for (const id of ["buildin/task-create-turn"]) {
   const tasks: string[] = spec.permissions?.dicode?.tasks ?? [];
   check(
     tasks.includes("buildin/write-task-file"),
-    `${id} dicode.tasks missing buildin/write-task-file; got ${JSON.stringify(tasks)}`,
+    `${id} dicode.tasks missing buildin/write-task-file; got ${
+      JSON.stringify(tasks)
+    }`,
   );
 
   // The system prompt is the only place the model learns how to get files onto
@@ -147,7 +156,8 @@ for (const summary of await listTasks()) {
   const skills = param(spec, "skills")?.default;
   if (!skills) continue;
   const readable = (spec.permissions?.fs ?? []).some(
-    (e: Json) => String(e.Path).endsWith("/skills") && String(e.Permission).includes("r"),
+    (e: Json) =>
+      String(e.Path).endsWith("/skills") && String(e.Permission).includes("r"),
   );
   check(
     readable,

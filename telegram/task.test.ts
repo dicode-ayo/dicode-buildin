@@ -12,7 +12,13 @@
 import { setupHarness } from "../sdk-test.ts";
 await setupHarness(import.meta.url);
 
-import { collectFields, escapeHtml, MAX_TEXT, renderMessage, runLogsURL } from "./render.ts";
+import {
+  collectFields,
+  escapeHtml,
+  MAX_TEXT,
+  renderMessage,
+  runLogsURL,
+} from "./render.ts";
 import { backoffDelayMs, stripToken } from "./retry.ts";
 
 const SEND = "https://api.telegram.org/bot*/sendMessage";
@@ -26,7 +32,8 @@ function render(params: Record<string, string>, input?: unknown) {
 test("suspend hook: keeps the rendered title and body", () => {
   const { text, silent } = render({
     title: "dicode: an agent needs your reply",
-    body: "Task buildin/ai-agent is paused for your input. Resume: http://localhost:8080/?run=r1",
+    body:
+      "Task buildin/ai-agent is paused for your input. Resume: http://localhost:8080/?run=r1",
     priority: "default",
     event: "suspended",
     run_id: "r1",
@@ -68,11 +75,18 @@ test("bare approval fields: composes a message when no rendered text arrives", (
   assert.ok(text.includes("<b>dicode: task pending approval</b>"), text);
   assert.ok(text.includes("buildin/ai-agent-claude-cli"), text);
   assert.ok(text.includes("Content: <code>abc123</code>"), text);
-  assert.ok(text.includes("Approve: http://localhost:8080/approve?t=tok"), text);
+  assert.ok(
+    text.includes("Approve: http://localhost:8080/approve?t=tok"),
+    text,
+  );
 });
 
 test("bare approval fields: an empty approve_url still yields a usable message", () => {
-  const { text } = render({ task_id: "buildin/x", hash: "h1", approve_url: "" });
+  const { text } = render({
+    task_id: "buildin/x",
+    hash: "h1",
+    approve_url: "",
+  });
   assert.ok(text.includes("pending approval"), text);
   assert.equal(text.includes("Approve:"), false);
 });
@@ -81,7 +95,8 @@ test("approval hook: the inlined approve link is not repeated as a detail line",
   const url = "http://localhost:8080/approve?t=tok";
   const { text } = render({
     title: "dicode: a task is waiting for approval",
-    body: `Task buildin/deploy is held pending approval and will not run until it is approved. Approve: ${url}`,
+    body:
+      `Task buildin/deploy is held pending approval and will not run until it is approved. Approve: ${url}`,
     priority: "default",
     event: "approval_pending",
     task_id: "buildin/deploy",
@@ -89,7 +104,10 @@ test("approval hook: the inlined approve link is not repeated as a detail line",
     approve_url: url,
   });
 
-  assert.ok(text.includes("<b>dicode: a task is waiting for approval</b>"), text);
+  assert.ok(
+    text.includes("<b>dicode: a task is waiting for approval</b>"),
+    text,
+  );
   assert.equal(text.split(url).length - 1, 1, text);
 });
 
@@ -110,7 +128,10 @@ test("failure chain: reads the engine-stamped input, not params", () => {
 });
 
 test("params win over input on the same field", () => {
-  const f = collectFields({ task_id: "from/params" }, { taskID: "from/input", runID: "r9" });
+  const f = collectFields({ task_id: "from/params" }, {
+    taskID: "from/input",
+    runID: "r9",
+  });
   assert.equal(f.task_id, "from/params");
   assert.equal(f.run_id, "r9");
 });
@@ -167,7 +188,10 @@ test("no fields at all: still renders something sendable", () => {
 // ─── send path ───────────────────────────────────────────────────────────
 
 test("posts HTML-parsed text to sendMessage", async () => {
-  http.mock("POST", SEND, { status: 200, body: { ok: true, result: { message_id: 42 } } });
+  http.mock("POST", SEND, {
+    status: 200,
+    body: { ok: true, result: { message_id: 42 } },
+  });
   env.set("TELEGRAM_BOT_TOKEN", "123:ABC");
   params.set("chat_id", "-100987");
   params.set("title", "hello");
@@ -186,7 +210,10 @@ test("posts HTML-parsed text to sendMessage", async () => {
 });
 
 test("falls back to the TELEGRAM_CHAT_ID secret when chat_id is empty", async () => {
-  http.mock("POST", SEND, { status: 200, body: { ok: true, result: { message_id: 1 } } });
+  http.mock("POST", SEND, {
+    status: 200,
+    body: { ok: true, result: { message_id: 1 } },
+  });
   env.set("TELEGRAM_BOT_TOKEN", "123:ABC");
   env.set("TELEGRAM_CHAT_ID", "-100555");
   params.set("title", "hello");
@@ -196,10 +223,18 @@ test("falls back to the TELEGRAM_CHAT_ID secret when chat_id is empty", async ()
 });
 
 test("failure-chain input reaches the send path", async () => {
-  http.mock("POST", SEND, { status: 200, body: { ok: true, result: { message_id: 7 } } });
+  http.mock("POST", SEND, {
+    status: 200,
+    body: { ok: true, result: { message_id: 7 } },
+  });
   env.set("TELEGRAM_BOT_TOKEN", "123:ABC");
   env.set("TELEGRAM_CHAT_ID", "-100555");
-  globalThis.input = { taskID: "ns/failing", runID: "r3", status: "failure", output: null };
+  globalThis.input = {
+    taskID: "ns/failing",
+    runID: "r3",
+    status: "failure",
+    output: null,
+  };
 
   const res = await runTask();
   assert.equal(res.task_id, "ns/failing");
@@ -209,7 +244,11 @@ test("failure-chain input reaches the send path", async () => {
 test("throws on a 200 that carries ok:false", async () => {
   http.mock("POST", SEND, {
     status: 200,
-    body: { ok: false, error_code: 400, description: "Bad Request: chat not found" },
+    body: {
+      ok: false,
+      error_code: 400,
+      description: "Bad Request: chat not found",
+    },
   });
   env.set("TELEGRAM_BOT_TOKEN", "123:ABC");
   params.set("chat_id", "-1");
@@ -219,7 +258,10 @@ test("throws on a 200 that carries ok:false", async () => {
 });
 
 test("surfaces Telegram's own description on a non-2xx", async () => {
-  http.mock("POST", SEND, { status: 401, body: { ok: false, description: "Unauthorized" } });
+  http.mock("POST", SEND, {
+    status: 401,
+    body: { ok: false, description: "Unauthorized" },
+  });
   env.set("TELEGRAM_BOT_TOKEN", "123:ABC");
   params.set("chat_id", "-1");
 
@@ -261,9 +303,16 @@ test("throws when no chat is configured", async () => {
 test("retries a 429 and succeeds on the next attempt", async () => {
   http.mockOnce("POST", SEND, {
     status: 429,
-    body: { ok: false, description: "Too Many Requests", parameters: { retry_after: 0 } },
+    body: {
+      ok: false,
+      description: "Too Many Requests",
+      parameters: { retry_after: 0 },
+    },
   });
-  http.mock("POST", SEND, { status: 200, body: { ok: true, result: { message_id: 9 } } });
+  http.mock("POST", SEND, {
+    status: 200,
+    body: { ok: true, result: { message_id: 9 } },
+  });
   env.set("TELEGRAM_BOT_TOKEN", "123:ABC");
   params.set("chat_id", "-1");
   params.set("title", "hello");
@@ -277,7 +326,10 @@ test("does not retry a 400 — the follow-up mock is never reached", async () =>
     status: 400,
     body: { ok: false, description: "Bad Request: chat not found" },
   });
-  http.mock("POST", SEND, { status: 200, body: { ok: true, result: { message_id: 1 } } });
+  http.mock("POST", SEND, {
+    status: 200,
+    body: { ok: true, result: { message_id: 1 } },
+  });
   env.set("TELEGRAM_BOT_TOKEN", "123:ABC");
   params.set("chat_id", "-1");
   params.set("title", "hello");
@@ -296,25 +348,44 @@ test("backoff honors Telegram's retry_after, and gives up when it cannot", () =>
 test("a retry_after longer than the budget fails without a second attempt", async () => {
   http.mockOnce("POST", SEND, {
     status: 429,
-    body: { ok: false, description: "Too Many Requests", parameters: { retry_after: 20 } },
+    body: {
+      ok: false,
+      description: "Too Many Requests",
+      parameters: { retry_after: 20 },
+    },
   });
-  http.mock("POST", SEND, { status: 200, body: { ok: true, result: { message_id: 2 } } });
+  http.mock("POST", SEND, {
+    status: 200,
+    body: { ok: true, result: { message_id: 2 } },
+  });
   env.set("TELEGRAM_BOT_TOKEN", "123:ABC");
   params.set("chat_id", "-1");
   params.set("title", "hello");
 
-  await assert.throws(() => runTask(), /retry_after 20s exceeds the task budget/);
+  await assert.throws(
+    () => runTask(),
+    /retry_after 20s exceeds the task budget/,
+  );
 });
 
 test("cut() never leaves a lone surrogate at the truncation point", () => {
   const { text } = render({ title: "\u{1F600}".repeat(300) });
-  assert.equal(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/.test(text), false, "lone high surrogate");
-  assert.equal(/(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/.test(text), false, "lone low surrogate");
+  assert.equal(
+    /[\uD800-\uDBFF](?![\uDC00-\uDFFF])/.test(text),
+    false,
+    "lone high surrogate",
+  );
+  assert.equal(
+    /(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/.test(text),
+    false,
+    "lone low surrogate",
+  );
 });
 
 test("stripToken keeps the bot token out of error text", () => {
   const token = "123456:AAsecretvalue";
-  const raw = `error sending request for url (https://api.telegram.org/bot${token}/sendMessage)`;
+  const raw =
+    `error sending request for url (https://api.telegram.org/bot${token}/sendMessage)`;
   const safe = stripToken(raw, token);
   assert.equal(safe.includes(token), false);
   assert.ok(safe.includes("<token>"), safe);
@@ -334,20 +405,31 @@ test("failure-chain input yields a logs link when base_url is configured", () =>
   );
   const { text } = render({ base_url: "http://host.ts.net:8080" }, input);
   assert.ok(
-    text.includes("Logs: http://host.ts.net:8080/?run=52eed385-3372-4e88-9d10-a8e473781b4e"),
+    text.includes(
+      "Logs: http://host.ts.net:8080/?run=52eed385-3372-4e88-9d10-a8e473781b4e",
+    ),
   );
 });
 
 test("no logs link when either half is missing", () => {
-  assert.equal(runLogsURL(collectFields({}, { runID: "r1", status: "failure" })), undefined);
   assert.equal(
-    runLogsURL(collectFields({ base_url: "http://host.ts.net:8080" }, { status: "failure" })),
+    runLogsURL(collectFields({}, { runID: "r1", status: "failure" })),
+    undefined,
+  );
+  assert.equal(
+    runLogsURL(
+      collectFields({ base_url: "http://host.ts.net:8080" }, {
+        status: "failure",
+      }),
+    ),
     undefined,
   );
 });
 
 test("a trailing slash on base_url does not double up in the link", () => {
-  const f = collectFields({ base_url: "http://host.ts.net:8080/" }, { runID: "r1" });
+  const f = collectFields({ base_url: "http://host.ts.net:8080/" }, {
+    runID: "r1",
+  });
   assert.equal(runLogsURL(f), "http://host.ts.net:8080/?run=r1");
 });
 
@@ -362,8 +444,14 @@ test("a link past the body cut still gets its own detail line", () => {
     status: "failure",
     body: "x".repeat(2000) + " " + url,
   });
-  assert.ok(!text.includes(`${"x".repeat(2000)} ${url}`), "body should be truncated");
-  assert.ok(text.includes(`Logs: ${url}`), "the surviving copy of the link must be rendered");
+  assert.ok(
+    !text.includes(`${"x".repeat(2000)} ${url}`),
+    "body should be truncated",
+  );
+  assert.ok(
+    text.includes(`Logs: ${url}`),
+    "the surviving copy of the link must be rendered",
+  );
 });
 
 test("no Logs line when it would only repeat resume_url", () => {

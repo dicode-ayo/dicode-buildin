@@ -33,7 +33,11 @@ export interface Output {
 
 export interface MCP {
   list_tools(name: string): Promise<unknown[]>;
-  call(name: string, tool: string, args?: Record<string, unknown>): Promise<unknown>;
+  call(
+    name: string,
+    tool: string,
+    args?: Record<string, unknown>,
+  ): Promise<unknown>;
 }
 
 export interface DicodeCrypto {
@@ -46,21 +50,21 @@ export interface DicodeCrypto {
 // AuditEvent is one row of the security audit log. Params are sanitized at
 // write time, so no value here is a raw secret.
 export interface AuditEvent {
-  id:          string;
-  ts:          string;
-  event_type:  string;
-  actor_kind:  string;
-  actor_id:    string;
+  id: string;
+  ts: string;
+  event_type: string;
+  actor_kind: string;
+  actor_id: string;
   target_kind: string;
-  target_id:   string;
-  params?:     string;
-  run_id?:     string;
-  allowed:     boolean;
-  reason?:     string;
+  target_id: string;
+  params?: string;
+  run_id?: string;
+  allowed: boolean;
+  reason?: string;
 }
 
 export interface AuditQueryResult {
-  events:      AuditEvent[];
+  events: AuditEvent[];
   next_cursor: string;
 }
 
@@ -71,11 +75,11 @@ export interface DicodeAudit {
    * Requires permissions.dicode.audit_query.
    */
   query(opts?: {
-    after?:     string;
-    limit?:     number;
-    order?:     "asc" | "desc";
-    taskID?:    string;
-    actor?:     string;
+    after?: string;
+    limit?: number;
+    order?: "asc" | "desc";
+    taskID?: string;
+    actor?: string;
     eventType?: string;
   }): Promise<AuditQueryResult>;
 }
@@ -214,15 +218,15 @@ export interface DicodeGit {
 // The context each task handler (main / resume / steps[x]) receives (#512).
 export interface DicodeSdk {
   params: Params;
-  kv:     KV;
+  kv: KV;
   // The input handed to THIS invocation: the trigger payload on a fresh run, the
   // schema-validated form submission on a resume.
-  input:  unknown;
+  input: unknown;
   // The author's carried blob, unwrapped from dicode.suspend({ state }). Undefined
   // on a first run — so a handler can tell first-vs-resume without a step switch.
   state?: unknown;
   output: Output;
-  mcp:    MCP;
+  mcp: MCP;
   dicode: Dicode;
 }
 

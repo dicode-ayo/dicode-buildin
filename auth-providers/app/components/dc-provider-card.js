@@ -1,4 +1,4 @@
-import { LitElement, html } from "https://esm.sh/lit@3";
+import { html, LitElement } from "https://esm.sh/lit@3";
 
 // dc-provider-card — one row in the providers list. Three columns:
 //   icon (brand-colored monochrome SVG via mask-image)
@@ -13,11 +13,13 @@ import { LitElement, html } from "https://esm.sh/lit@3";
 // per-row asset path respectively.
 class DcProviderCard extends LitElement {
   // Render into the light DOM so theme.css variables apply directly.
-  createRenderRoot() { return this; }
+  createRenderRoot() {
+    return this;
+  }
 
   static properties = {
-    row:    { attribute: false },
-    error:  { state: true },
+    row: { attribute: false },
+    error: { state: true },
   };
 
   constructor() {
@@ -26,37 +28,57 @@ class DcProviderCard extends LitElement {
     this.error = "";
   }
 
-  setError(msg) { this.error = String(msg || ""); }
+  setError(msg) {
+    this.error = String(msg || "");
+  }
 
   _onConnect() {
     this.error = "";
-    this.dispatchEvent(new CustomEvent("connect", {
-      bubbles: true,
-      detail: { provider: this.row?.provider },
-    }));
+    this.dispatchEvent(
+      new CustomEvent("connect", {
+        bubbles: true,
+        detail: { provider: this.row?.provider },
+      }),
+    );
   }
 
   _pill(row) {
     if (!row.has_token) {
-      return html`<span class="pill" style="background:var(--pill-err)">Not connected</span>`;
+      return html`
+        <span class="pill" style="background:var(--pill-err)">Not connected</span>
+      `;
     }
     if (!row.expires_at) {
-      return html`<span class="pill" style="background:var(--pill-ok)">Connected</span>`;
+      return html`
+        <span class="pill" style="background:var(--pill-ok)">Connected</span>
+      `;
     }
     const ms = Date.parse(row.expires_at) - Date.now();
     if (Number.isNaN(ms)) {
-      return html`<span class="pill" style="background:var(--pill-ok)">Connected</span>`;
+      return html`
+        <span class="pill" style="background:var(--pill-ok)">Connected</span>
+      `;
     }
     if (ms <= 0) {
-      return html`<span class="pill" style="background:var(--pill-err)">Expired</span>`;
+      return html`
+        <span class="pill" style="background:var(--pill-err)">Expired</span>
+      `;
     }
     const color = ms < 24 * 3600_000 ? "var(--pill-warn)" : "var(--pill-ok)";
-    return html`<span class="pill" style="background:${color}">Expires ${humanDelta(ms)}</span>`;
+    return html`
+      <span class="pill" style="background:${color}">Expires ${humanDelta(
+        ms,
+      )}</span>
+    `;
   }
 
   render() {
     const row = this.row;
-    if (!row) return html``;
+    if (!row) {
+      return html`
+
+      `;
+    }
     const meta = row.meta || { label: row.provider, color: "#888" };
     const buttonLabel = row.has_token ? "Reconnect" : "Connect";
     // Icon path is per-provider; safeProviderKey ensures only the lowercase
@@ -68,26 +90,34 @@ class DcProviderCard extends LitElement {
     // CSS custom properties in inline style are resolved against the
     // CONSUMING stylesheet's location, not the document base — that produced
     // a doubled "app/app/" prefix when used inside theme.css.
-    const iconUrl = `url("${HOOK_BASE}/app/icons/${safeProviderKey(row.provider)}.svg")`;
+    const iconUrl = `url("${HOOK_BASE}/app/icons/${
+      safeProviderKey(row.provider)
+    }.svg")`;
     const brand = safeColor(meta.color);
     return html`
-      <span class="provider-icon"
-            aria-hidden="true"
-            style="--brand:${brand};--icon-url:${iconUrl}"></span>
+      <span
+        class="provider-icon"
+        aria-hidden="true"
+        style="--brand:${brand};--icon-url:${iconUrl}"
+      ></span>
       <div class="provider-main">
         <span class="provider-name">${meta.label}</span>
-        ${row.scope ? html`
+        ${row.scope
+        ? html`
           <span class="provider-scope">scope: <code>${row.scope}</code></span>
-        ` : ""}
-        ${this.error ? html`
+        `
+        : ""} ${this.error
+        ? html`
           <span class="provider-error">${this.error}</span>
-        ` : ""}
+        `
+        : ""}
       </div>
       <div class="provider-actions">
         ${this._pill(row)}
-        <button class="btn"
-                aria-label="${buttonLabel} ${meta.label}"
-                @click=${() => this._onConnect()}>${buttonLabel}</button>
+        <button class="btn" aria-label="${buttonLabel} ${meta
+        .label}" @click="${() => this._onConnect()}">
+          ${buttonLabel}
+        </button>
       </div>
     `;
   }
@@ -100,7 +130,9 @@ class DcProviderCard extends LitElement {
 const HOOK_BASE = (() => {
   const m = document.querySelector('meta[name="dicode-hook"]');
   const v = m?.getAttribute("content");
-  return v && /^[/A-Za-z0-9_\-]+$/.test(v) ? v.replace(/\/$/, "") : "/hooks/auth-providers";
+  return v && /^[/A-Za-z0-9_\-]+$/.test(v)
+    ? v.replace(/\/$/, "")
+    : "/hooks/auth-providers";
 })();
 
 // safeColor returns the input only if it's a hex color literal (#rgb,
@@ -121,8 +153,8 @@ function safeProviderKey(k) {
 
 function humanDelta(ms) {
   const sec = Math.floor(ms / 1000);
-  if (sec < 60)    return `in ${sec}s`;
-  if (sec < 3600)  return `in ${Math.floor(sec / 60)}m`;
+  if (sec < 60) return `in ${sec}s`;
+  if (sec < 3600) return `in ${Math.floor(sec / 60)}m`;
   if (sec < 86400) return `in ${Math.floor(sec / 3600)}h`;
   return `in ${Math.floor(sec / 86400)}d`;
 }

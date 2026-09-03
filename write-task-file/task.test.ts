@@ -1,4 +1,7 @@
-import { assertEquals, assertRejects } from "https://deno.land/std@0.224.0/assert/mod.ts";
+import {
+  assertEquals,
+  assertRejects,
+} from "https://deno.land/std@0.224.0/assert/mod.ts";
 import main, { assertTaskDocument, assertTaskFilePath } from "./task.ts";
 
 function sdk(params: Record<string, string>) {
@@ -22,7 +25,9 @@ async function withTmpDir(fn: (dir: string) => Promise<void>): Promise<void> {
 
 Deno.test("refuses_to_write_without_a_root", async () => {
   Deno.env.delete("DICODE_TASK_FILE_ROOTS");
-  await assertRejects(() => main(sdk({ content: "x", path: "/data/ai-tasks/t/task.ts" })));
+  await assertRejects(() =>
+    main(sdk({ content: "x", path: "/data/ai-tasks/t/task.ts" }))
+  );
 });
 
 const ROOTS = ["/data/ai-tasks"];
@@ -75,7 +80,10 @@ Deno.test("rejects_files_outside_a_task_directory", () => {
 
 Deno.test("rejects_paths_outside_the_roots", () => {
   rejects("/data/other/my-task/task.ts", "different tree");
-  rejects("/data/ai-tasks-evil/my-task/task.ts", "root is a path prefix, not a string prefix");
+  rejects(
+    "/data/ai-tasks-evil/my-task/task.ts",
+    "root is a path prefix, not a string prefix",
+  );
   rejects("/etc/my-task/task.yaml", "unrelated absolute path");
 });
 
@@ -93,8 +101,14 @@ Deno.test("rejects_git_internals", () => {
 // there never perturbs the content hash the approval gate re-checks at fire
 // time — an already-approved task would run swapped code.
 Deno.test("rejects_paths_below_a_task_directory", () => {
-  rejects("/data/ai-tasks/my-task/node_modules/helper/task.ts", "hash-excluded subtree");
-  rejects("/data/ai-tasks/my-task/nested/task.ts", "deeper than a task's own directory");
+  rejects(
+    "/data/ai-tasks/my-task/node_modules/helper/task.ts",
+    "hash-excluded subtree",
+  );
+  rejects(
+    "/data/ai-tasks/my-task/nested/task.ts",
+    "deeper than a task's own directory",
+  );
 });
 
 Deno.test("rejects_traversal_and_relative_paths", () => {
@@ -125,7 +139,9 @@ Deno.test("rejects_a_task_yaml_that_is_really_a_taskset", () => {
   } catch {
     threw = true;
   }
-  if (!threw) throw new Error("expected a kind: TaskSet document to be rejected");
+  if (!threw) {
+    throw new Error("expected a kind: TaskSet document to be rejected");
+  }
 });
 
 Deno.test("rejects_a_quoted_or_multi_document_kind", () => {
@@ -144,7 +160,9 @@ Deno.test("rejects_a_quoted_or_multi_document_kind", () => {
     } catch {
       threw = true;
     }
-    if (!threw) throw new Error(`expected ${JSON.stringify(content)} to be rejected`);
+    if (!threw) {
+      throw new Error(`expected ${JSON.stringify(content)} to be rejected`);
+    }
   }
 });
 
@@ -164,7 +182,11 @@ Deno.test("rejects_yaml_1_1_line_breaks", () => {
       threw = true;
     }
     if (!threw) {
-      throw new Error(`expected a manifest split by U+${sep.codePointAt(0)!.toString(16)} to be rejected`);
+      throw new Error(
+        `expected a manifest split by U+${
+          sep.codePointAt(0)!.toString(16)
+        } to be rejected`,
+      );
     }
   }
 });
@@ -200,7 +222,9 @@ Deno.test("overwrites_an_existing_task_file", async () => {
 
 Deno.test("refuses_to_write_a_rejected_path", async () => {
   await withTmpDir(async (dir) => {
-    await assertRejects(() => main(sdk({ content: "x", path: `${dir}/taskset.yaml` })));
+    await assertRejects(() =>
+      main(sdk({ content: "x", path: `${dir}/taskset.yaml` }))
+    );
     await assertRejects(() => main(sdk({ path: `${dir}/t/task.ts` })));
   });
 });

@@ -1,12 +1,15 @@
-import { assertEquals, assertRejects, assertThrows } from "https://deno.land/std@0.224.0/assert/mod.ts";
+import {
+  assertEquals,
+  assertRejects,
+  assertThrows,
+} from "https://deno.land/std@0.224.0/assert/mod.ts";
 import main, { parseMode } from "./task.ts";
 
 // Test helper — wraps the SDK shape main() expects.
 function sdk(params: Record<string, string>) {
   return {
     params: {
-      get: (k: string) =>
-        Promise.resolve(params[k] ?? null),
+      get: (k: string) => Promise.resolve(params[k] ?? null),
     },
   } as never;
 }
@@ -23,7 +26,9 @@ async function withTmpDir(fn: (dir: string) => Promise<void>): Promise<void> {
 Deno.test("write_creates_file", async () => {
   await withTmpDir(async (dir) => {
     const path = `${dir}/out.txt`;
-    const result = await main(sdk({ content: "hello\nworld\n", path, mode: "0600" }));
+    const result = await main(
+      sdk({ content: "hello\nworld\n", path, mode: "0600" }),
+    );
     assertEquals(result, { path });
     const written = await Deno.readTextFile(path);
     assertEquals(written, "hello\nworld\n");
@@ -134,7 +139,8 @@ Deno.test("rejects_relative_path", async () => {
 
 Deno.test("rejects_dotdot_path", async () => {
   await assertRejects(
-    () => main(sdk({ content: "x", path: "/tmp/foo/../bar.txt", mode: "0600" })),
+    () =>
+      main(sdk({ content: "x", path: "/tmp/foo/../bar.txt", mode: "0600" })),
     Error,
     "parent-directory segments not allowed",
   );

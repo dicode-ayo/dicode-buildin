@@ -1,5 +1,8 @@
-import { assertEquals, assertRejects } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import main, { verify, VerificationFailed } from "./task.ts";
+import {
+  assertEquals,
+  assertRejects,
+} from "https://deno.land/std@0.224.0/assert/mod.ts";
+import main, { VerificationFailed, verify } from "./task.ts";
 
 const SCAFFOLD_BODY =
   'export default async function main({ dicode }: DicodeSdk) {\n  console.log("Hello from " + dicode.task_id);\n}\n';

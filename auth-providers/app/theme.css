@@ -3,33 +3,33 @@
  * page can stand alone (no shared asset path between built-in tasks).
  */
 :root[data-theme="dark"] {
-  --bg:        #0f1115;
-  --surface:   #181b22;
+  --bg: #0f1115;
+  --surface: #181b22;
   --surface-2: #1f2330;
-  --border:    #2a2e38;
-  --text:      #e6e8ee;
-  --muted:     #a1a8b6;
-  --accent:    #4f8cff;
-  --pill-ok:   #1a7f37;
+  --border: #2a2e38;
+  --text: #e6e8ee;
+  --muted: #a1a8b6;
+  --accent: #4f8cff;
+  --pill-ok: #1a7f37;
   --pill-warn: #b88200;
-  --pill-err:  #b3261e;
-  --space-sm:  .5rem;
-  --space-md:  1rem;
+  --pill-err: #b3261e;
+  --space-sm: 0.5rem;
+  --space-md: 1rem;
 }
 
 :root[data-theme="light"] {
-  --bg:        #ffffff;
-  --surface:   #f6f7f9;
+  --bg: #ffffff;
+  --surface: #f6f7f9;
   --surface-2: #ffffff;
-  --border:    #d8dde5;
-  --text:      #14171c;
-  --muted:     #5a6473;
-  --accent:    #0a66ff;
-  --pill-ok:   #1a7f37;
+  --border: #d8dde5;
+  --text: #14171c;
+  --muted: #5a6473;
+  --accent: #0a66ff;
+  --pill-ok: #1a7f37;
   --pill-warn: #b88200;
-  --pill-err:  #b3261e;
-  --space-sm:  .5rem;
-  --space-md:  1rem;
+  --pill-err: #b3261e;
+  --space-sm: 0.5rem;
+  --space-md: 1rem;
 }
 
 html, body {
@@ -48,7 +48,7 @@ dc-providers-page {
 }
 
 dc-providers-page header h1 {
-  margin: 0 0 .25rem;
+  margin: 0 0 0.25rem;
   font-size: 1.4rem;
 }
 
@@ -59,7 +59,7 @@ dc-providers-page header h1 {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: .5rem;
+  gap: 0.5rem;
 }
 
 .providers-grid li {
@@ -73,7 +73,7 @@ dc-provider-card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 10px;
-  padding: .75rem 1rem;
+  padding: 0.75rem 1rem;
   min-height: 56px;
 }
 
@@ -84,7 +84,7 @@ dc-provider-card {
   height: 36px;
   background-color: var(--brand, var(--muted));
   -webkit-mask: var(--icon-url) center / 24px 24px no-repeat;
-          mask: var(--icon-url) center / 24px 24px no-repeat;
+  mask: var(--icon-url) center / 24px 24px no-repeat;
 }
 
 /* Middle column — label + scope. */
@@ -92,19 +92,19 @@ dc-provider-card {
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
-  gap: .15rem;
+  gap: 0.15rem;
   min-width: 0;
 }
 
 .provider-name {
   font-weight: 600;
-  font-size: .95rem;
+  font-size: 0.95rem;
   line-height: 1.2;
 }
 
 .provider-scope {
   color: var(--muted);
-  font-size: .8em;
+  font-size: 0.8em;
   line-height: 1.3;
   white-space: nowrap;
   overflow: hidden;
@@ -113,14 +113,14 @@ dc-provider-card {
 
 .provider-scope code {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: .9em;
+  font-size: 0.9em;
 }
 
 .provider-error {
   color: var(--pill-err);
-  font-size: .8em;
+  font-size: 0.8em;
   line-height: 1.3;
-  margin-top: .15rem;
+  margin-top: 0.15rem;
 }
 
 /* Right column — status pill + button. */
@@ -128,17 +128,17 @@ dc-provider-card {
   flex: 0 0 auto;
   display: flex;
   align-items: center;
-  gap: .75rem;
+  gap: 0.75rem;
 }
 
 .pill {
   display: inline-block;
   color: white;
   border-radius: 999px;
-  padding: .15rem .6rem;
-  font-size: .72em;
+  padding: 0.15rem 0.6rem;
+  font-size: 0.72em;
   font-weight: 600;
-  letter-spacing: .01em;
+  letter-spacing: 0.01em;
   white-space: nowrap;
 }
 
@@ -147,13 +147,15 @@ dc-provider-card {
   color: white;
   border: 0;
   border-radius: 6px;
-  padding: .4rem .9rem;
+  padding: 0.4rem 0.9rem;
   cursor: pointer;
   font-weight: 600;
-  font-size: .85em;
+  font-size: 0.85em;
   white-space: nowrap;
 }
-.btn:hover { filter: brightness(1.1); }
+.btn:hover {
+  filter: brightness(1.1);
+}
 .btn:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;

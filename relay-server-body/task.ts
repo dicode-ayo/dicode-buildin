@@ -13,7 +13,13 @@
 // off to startServer. OAuth secrets no longer flow through this task's
 // env — they're scoped to stage 1 of the pipeline.
 
-import { chmodSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { dirname, join } from "node:path";
 import { generateKeyPairSync } from "node:crypto";
 import { loadConfig } from "npm:dicode-relay@0.2.1/config";
@@ -125,7 +131,9 @@ export function ensureSigningKey(): void {
 export async function ensureServerCert(): Promise<void> {
   const dataDir = Deno.env.get("DICODE_DATADIR");
   if (!dataDir) {
-    throw new Error("DICODE_DATADIR not set; daemon should always provide this");
+    throw new Error(
+      "DICODE_DATADIR not set; daemon should always provide this",
+    );
   }
   const certPath = join(dataDir, "relay", "mtls-cert.pem");
   const keyPath = join(dataDir, "relay", "mtls-key.pem");

@@ -1,7 +1,11 @@
 /* Catppuccin Mocha-ish palette; matches buildin/ai-agent for visual
    consistency across the two AI presets. */
 
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
 
 body {
   font-family: system-ui, sans-serif;
@@ -36,7 +40,7 @@ header {
 header .title {
   display: flex;
   align-items: center;
-  gap: .5rem;
+  gap: 0.5rem;
 }
 
 header h1 {
@@ -49,9 +53,9 @@ header h1 {
   color: #89b4fa;
   border: 1px solid #45475a;
   border-radius: 999px;
-  padding: .125rem .5rem;
-  font-size: .75rem;
-  letter-spacing: .02em;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.02em;
 }
 
 #new-chat {
@@ -59,28 +63,51 @@ header h1 {
   color: #cdd6f4;
   border: 1px solid #45475a;
   border-radius: 6px;
-  padding: .375rem .75rem;
-  font-size: .8125rem;
+  padding: 0.375rem 0.75rem;
+  font-size: 0.8125rem;
   font-family: inherit;
   cursor: pointer;
-  transition: background .15s;
+  transition: background 0.15s;
 }
-#new-chat:hover { background: #45475a; }
+#new-chat:hover {
+  background: #45475a;
+}
 
 .setup {
   background: #1e2030;
   border-bottom: 1px solid #313244;
   padding: 1rem 1.25rem;
-  font-size: .875rem;
+  font-size: 0.875rem;
   line-height: 1.5;
   color: #f9e2af;
 }
-.setup strong { color: #fab387; display: block; margin-bottom: .375rem; }
-.setup p { margin-top: .5rem; color: #cdd6f4; }
-.setup ol { margin: .5rem 0 .5rem 1.25rem; color: #cdd6f4; }
-.setup code { background: #313244; padding: .075rem .35rem; border-radius: 4px; font-size: .8125rem; }
-.setup a { color: #89b4fa; }
-.setup-detail { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .8125rem; color: #6c7086; }
+.setup strong {
+  color: #fab387;
+  display: block;
+  margin-bottom: 0.375rem;
+}
+.setup p {
+  margin-top: 0.5rem;
+  color: #cdd6f4;
+}
+.setup ol {
+  margin: 0.5rem 0 0.5rem 1.25rem;
+  color: #cdd6f4;
+}
+.setup code {
+  background: #313244;
+  padding: 0.075rem 0.35rem;
+  border-radius: 4px;
+  font-size: 0.8125rem;
+}
+.setup a {
+  color: #89b4fa;
+}
+.setup-detail {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8125rem;
+  color: #6c7086;
+}
 
 .messages {
   flex: 1;
@@ -88,14 +115,14 @@ header h1 {
   padding: 1.25rem;
   display: flex;
   flex-direction: column;
-  gap: .75rem;
+  gap: 0.75rem;
 }
 
 .bubble {
   max-width: 85%;
-  padding: .625rem .875rem;
+  padding: 0.625rem 0.875rem;
   border-radius: 12px;
-  font-size: .9375rem;
+  font-size: 0.9375rem;
   line-height: 1.5;
   white-space: pre-wrap;
   word-break: break-word;
@@ -125,7 +152,7 @@ header h1 {
   background: #3d1f2c;
   color: #f38ba8;
   border: 1px solid #6e3142;
-  font-size: .875rem;
+  font-size: 0.875rem;
 }
 
 .bubble a {
@@ -135,33 +162,36 @@ header h1 {
 
 #prompt-form {
   border-top: 1px solid #313244;
-  padding: .75rem 1.25rem 1rem;
+  padding: 0.75rem 1.25rem 1rem;
   display: flex;
   flex-direction: column;
-  gap: .5rem;
+  gap: 0.5rem;
 }
 
 #prompt {
   background: #1e1e2e;
   border: 1px solid #313244;
   border-radius: 8px;
-  padding: .625rem .75rem;
+  padding: 0.625rem 0.75rem;
   color: #cdd6f4;
   font-family: inherit;
-  font-size: .9375rem;
+  font-size: 0.9375rem;
   resize: vertical;
 }
-#prompt:focus { outline: none; border-color: #89b4fa; }
+#prompt:focus {
+  outline: none;
+  border-color: #89b4fa;
+}
 
 .row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: .75rem;
+  gap: 0.75rem;
 }
 
 .meta {
-  font-size: .75rem;
+  font-size: 0.75rem;
   color: #6c7086;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
@@ -171,12 +201,17 @@ header h1 {
   color: #1e1e2e;
   border: none;
   border-radius: 6px;
-  padding: .5rem 1.25rem;
-  font-size: .875rem;
+  padding: 0.5rem 1.25rem;
+  font-size: 0.875rem;
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
-  transition: opacity .15s;
+  transition: opacity 0.15s;
 }
-#send:hover { opacity: .9; }
-#send:disabled { opacity: .5; cursor: not-allowed; }
+#send:hover {
+  opacity: 0.9;
+}
+#send:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

@@ -10,7 +10,7 @@ import type { DicodeSdk } from "../sdk.ts";
 
 export default async function main({ params }: DicodeSdk) {
   const action = String((await params.get("action")) ?? "ping").trim();
-  const query  = String((await params.get("query"))  ?? "").trim();
+  const query = String((await params.get("query")) ?? "").trim();
 
   switch (action) {
     case "status": {
@@ -48,7 +48,9 @@ export default async function main({ params }: DicodeSdk) {
     }
 
     case "echo": {
-      if (!query) throw new Error("echo action requires a non-empty 'query' param");
+      if (!query) {
+        throw new Error("echo action requires a non-empty 'query' param");
+      }
       console.log(`Echo: ${query}`);
       return {
         action: "echo",

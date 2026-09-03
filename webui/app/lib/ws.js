@@ -2,13 +2,15 @@ let ws = null;
 const handlers = {};
 
 function dispatch(type, data) {
-  (handlers[type] || []).forEach(fn => fn(data));
+  (handlers[type] || []).forEach((fn) => fn(data));
 }
 
 export function wsOn(type, fn) {
   if (!handlers[type]) handlers[type] = [];
   handlers[type].push(fn);
-  return () => { handlers[type] = handlers[type].filter(f => f !== fn); };
+  return () => {
+    handlers[type] = handlers[type].filter((f) => f !== fn);
+  };
 }
 
 export function wsSend(type, data) {
@@ -18,22 +20,26 @@ export function wsSend(type, data) {
 }
 
 export function wsConnect() {
-  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  const proto = location.protocol === "https:" ? "wss" : "ws";
   ws = new WebSocket(`${proto}://${location.host}/ws`);
   ws.onopen = () => {
-    wsSend('sub:logs');
-    dispatch('ws:status', { connected: true });
+    wsSend("sub:logs");
+    dispatch("ws:status", { connected: true });
   };
   ws.onmessage = (e) => {
     try {
       const msg = JSON.parse(e.data);
       dispatch(msg.type, msg.data);
-    } catch(_) {}
+    } catch {
+      // Malformed frame — drop it rather than tearing down the socket.
+    }
   };
   ws.onclose = () => {
     ws = null;
-    dispatch('ws:status', { connected: false });
+    dispatch("ws:status", { connected: false });
     setTimeout(wsConnect, 3000);
   };
-  ws.onerror = () => { if (ws) ws.close(); };
+  ws.onerror = () => {
+    if (ws) ws.close();
+  };
 }

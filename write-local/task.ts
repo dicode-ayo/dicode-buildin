@@ -25,7 +25,9 @@ interface WriteResult {
 // rendered config has no business carrying 4xxx/2xxx/1xxx modes.
 export function parseMode(s: string): number {
   if (!/^0?[0-7]{3}$/.test(s)) {
-    throw new Error(`invalid mode: ${JSON.stringify(s)} (expected octal like "0600")`);
+    throw new Error(
+      `invalid mode: ${JSON.stringify(s)} (expected octal like "0600")`,
+    );
   }
   return parseInt(s, 8);
 }
@@ -48,10 +50,16 @@ export default async function main(
   // enforce it loudly here rather than relying on the fs:rw allowlist
   // to reject relative paths at write time with a cryptic error.
   if (!path.startsWith("/")) {
-    throw new Error(`invalid path: must be absolute (got ${JSON.stringify(path)})`);
+    throw new Error(
+      `invalid path: must be absolute (got ${JSON.stringify(path)})`,
+    );
   }
   if (path.includes("/../") || path.endsWith("/..") || path === "..") {
-    throw new Error(`invalid path: parent-directory segments not allowed (${JSON.stringify(path)})`);
+    throw new Error(
+      `invalid path: parent-directory segments not allowed (${
+        JSON.stringify(path)
+      })`,
+    );
   }
   // Block embedded NUL bytes before they reach Deno.writeTextFile. The
   // fs:rw allowlist already confines us to declared roots — this is

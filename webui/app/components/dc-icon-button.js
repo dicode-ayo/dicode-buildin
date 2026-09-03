@@ -1,4 +1,4 @@
-import { LitElement, html, css } from 'https://esm.sh/lit@3';
+import { css, html, LitElement } from "https://esm.sh/lit@3";
 
 // <dc-icon-button> — Stage 1 primitive (#93): a real <button> wrapping a
 // slotted icon, with an `aria-label` sourced from a required `label` prop
@@ -22,7 +22,9 @@ class DcIconButton extends LitElement {
   };
 
   static styles = css`
-    :host { display: inline-block; }
+    :host {
+      display: inline-block;
+    }
     button {
       display: flex;
       align-items: center;
@@ -36,7 +38,10 @@ class DcIconButton extends LitElement {
       color: var(--dicode-muted);
       cursor: pointer;
       font: inherit;
-      transition: background var(--dicode-duration-fast) var(--dicode-ease), border-color var(--dicode-duration-fast) var(--dicode-ease), color var(--dicode-duration-fast) var(--dicode-ease);
+      transition:
+        background var(--dicode-duration-fast) var(--dicode-ease),
+        border-color var(--dicode-duration-fast) var(--dicode-ease),
+        color var(--dicode-duration-fast) var(--dicode-ease);
     }
     button:hover {
       background: var(--dicode-card-bg);
@@ -47,21 +52,27 @@ class DcIconButton extends LitElement {
       outline: var(--dicode-focus-ring);
       outline-offset: var(--dicode-focus-ring-offset);
     }
-    :host([variant='danger']) button:hover,
-    :host([variant='danger']) button:focus-visible {
+    :host([variant="danger"]) button:hover,
+    :host([variant="danger"]) button:focus-visible {
       border-color: var(--dicode-red);
       color: var(--dicode-red);
     }
-    :host([variant='danger']) button:focus-visible {
+    :host([variant="danger"]) button:focus-visible {
       outline-color: var(--dicode-red);
     }
-    button:disabled { opacity: .5; cursor: not-allowed; }
-    ::slotted(svg) { inline-size: var(--dicode-icon-size); block-size: var(--dicode-icon-size); }
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    ::slotted(svg) {
+      inline-size: var(--dicode-icon-size);
+      block-size: var(--dicode-icon-size);
+    }
   `;
 
   constructor() {
     super();
-    this.label = '';
+    this.label = "";
     // No default assigned: `variant` reflects, and with @lit/reactive-element's
     // actual reflection timing, a constructor-assigned default would stamp
     // `variant="default"` onto every instance's host attribute on first
@@ -83,18 +94,26 @@ class DcIconButton extends LitElement {
   // loudly in dev rather than only in an accessibility audit.
   willUpdate(changedProperties) {
     super.willUpdate(changedProperties);
-    if (changedProperties.has('label') && !this.label) {
-      console.warn('<dc-icon-button> requires a non-empty `label`; an icon-only button has no accessible name without one.', this);
+    if (changedProperties.has("label") && !this.label) {
+      console.warn(
+        "<dc-icon-button> requires a non-empty `label`; an icon-only button has no accessible name without one.",
+        this,
+      );
     }
   }
 
   render() {
     return html`
-      <button type="button" aria-label=${this.label} title=${this.label} ?disabled=${this.disabled}>
+      <button
+        type="button"
+        aria-label="${this.label}"
+        title="${this.label}"
+        ?disabled="${this.disabled}"
+      >
         <slot></slot>
       </button>
     `;
   }
 }
 
-customElements.define('dc-icon-button', DcIconButton);
+customElements.define("dc-icon-button", DcIconButton);

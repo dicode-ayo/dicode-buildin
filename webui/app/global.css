@@ -9,11 +9,17 @@
  * data-theme="light" / "dark" on <html> retints everything atomically.
  */
 
-@import './theme.css';
+@import "./theme.css";
 
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
 
-html { scroll-behavior: smooth; }
+html {
+  scroll-behavior: smooth;
+}
 
 body {
   font-family: var(--dicode-font-sans);
@@ -21,40 +27,82 @@ body {
   color: var(--dicode-text);
   line-height: var(--dicode-leading-normal);
   font-size: var(--dicode-text-base);
-  transition: background-color var(--dicode-duration) var(--dicode-ease), color var(--dicode-duration) var(--dicode-ease);
+  transition:
+    background-color var(--dicode-duration) var(--dicode-ease),
+    color var(--dicode-duration) var(--dicode-ease);
 }
 
-a { color: var(--dicode-blue); text-decoration: none; }
-a:hover { color: var(--dicode-blue2); }
+a {
+  color: var(--dicode-blue);
+  text-decoration: none;
+}
+a:hover {
+  color: var(--dicode-blue2);
+}
 
-h1, h2, h3, h4, h5, h6 { color: var(--dicode-heading); font-weight: var(--dicode-font-bold); line-height: var(--dicode-leading-snug); }
-h1 { font-size: var(--dicode-text-xl); margin-bottom: var(--dicode-space-md); }
-h2 { font-size: var(--dicode-text-lg); margin-bottom: var(--dicode-space-sm); margin-top: var(--dicode-space-md); }
-h3 { font-size: var(--dicode-text-md); margin-bottom: var(--dicode-space-xs); }
+h1, h2, h3, h4, h5, h6 {
+  color: var(--dicode-heading);
+  font-weight: var(--dicode-font-bold);
+  line-height: var(--dicode-leading-snug);
+}
+h1 {
+  font-size: var(--dicode-text-xl);
+  margin-bottom: var(--dicode-space-md);
+}
+h2 {
+  font-size: var(--dicode-text-lg);
+  margin-bottom: var(--dicode-space-sm);
+  margin-top: var(--dicode-space-md);
+}
+h3 {
+  font-size: var(--dicode-text-md);
+  margin-bottom: var(--dicode-space-xs);
+}
 
-main { padding: var(--dicode-space-lg); max-width: 1100px; margin: 0 auto; }
+main {
+  padding: var(--dicode-space-lg);
+  max-width: 1100px;
+  margin: 0 auto;
+}
 
 /* ── HEADER / NAV ─────────────────────────────────────────────────── */
 header {
   background: var(--dicode-bg-alt);
   color: var(--dicode-heading);
   padding: var(--dicode-space-sm) var(--dicode-space-lg);
-  display: flex; align-items: center; gap: var(--dicode-space-md);
+  display: flex;
+  align-items: center;
+  gap: var(--dicode-space-md);
   border-bottom: var(--dicode-border-width) solid var(--dicode-border);
 }
-header > a { color: var(--dicode-sky); font-weight: var(--dicode-font-semibold); }
+header > a {
+  color: var(--dicode-sky);
+  font-weight: var(--dicode-font-semibold);
+}
 
-nav { display: flex; gap: var(--dicode-space-md); }
+nav {
+  display: flex;
+  gap: var(--dicode-space-md);
+}
 nav a {
   color: var(--dicode-muted);
   font-size: var(--dicode-text-base);
   font-weight: var(--dicode-font-medium);
   transition: color var(--dicode-duration-fast) var(--dicode-ease);
 }
-nav a:hover { color: var(--dicode-sky); }
-nav a.active { color: var(--dicode-heading); }
+nav a:hover {
+  color: var(--dicode-sky);
+}
+nav a.active {
+  color: var(--dicode-heading);
+}
 
-header .header-right { margin-left: auto; display: flex; align-items: center; gap: var(--dicode-space-sm); }
+header .header-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--dicode-space-sm);
+}
 
 /* ── BUTTONS ──────────────────────────────────────────────────────── */
 .btn {
@@ -68,19 +116,45 @@ header .header-right { margin-left: auto; display: flex; align-items: center; ga
   background: var(--dicode-blue);
   color: #fff;
   text-decoration: none;
-  transition: background var(--dicode-duration-fast) var(--dicode-ease), border-color var(--dicode-duration-fast) var(--dicode-ease), transform var(--dicode-duration-fast) var(--dicode-ease);
+  transition:
+    background var(--dicode-duration-fast) var(--dicode-ease),
+    border-color var(--dicode-duration-fast) var(--dicode-ease),
+    transform var(--dicode-duration-fast) var(--dicode-ease);
   font-family: inherit;
 }
-.btn:hover { background: var(--dicode-blue2); color: #fff; }
-.btn:disabled { opacity: .5; cursor: not-allowed; }
+.btn:hover {
+  background: var(--dicode-blue2);
+  color: #fff;
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 
-.btn.secondary { background: transparent; color: var(--dicode-text); border-color: var(--dicode-border); }
-.btn.secondary:hover { border-color: var(--dicode-sky); color: var(--dicode-sky); background: var(--dicode-card-bg); }
+.btn.secondary {
+  background: transparent;
+  color: var(--dicode-text);
+  border-color: var(--dicode-border);
+}
+.btn.secondary:hover {
+  border-color: var(--dicode-sky);
+  color: var(--dicode-sky);
+  background: var(--dicode-card-bg);
+}
 
-.btn.danger { background: var(--dicode-red); color: #fff; }
-.btn.danger:hover { background: var(--dicode-red); filter: brightness(1.1); }
+.btn.danger {
+  background: var(--dicode-red);
+  color: #fff;
+}
+.btn.danger:hover {
+  background: var(--dicode-red);
+  filter: brightness(1.1);
+}
 
-.btn-sm { padding: var(--dicode-space-xs) var(--dicode-space-sm); font-size: var(--dicode-text-sm); }
+.btn-sm {
+  padding: var(--dicode-space-xs) var(--dicode-space-sm);
+  font-size: var(--dicode-text-sm);
+}
 
 :focus-visible {
   outline: var(--dicode-focus-ring-width) solid var(--dicode-blue);
@@ -101,9 +175,14 @@ header .header-right { margin-left: auto; display: flex; align-items: center; ga
   margin-bottom: var(--dicode-space-md);
   transition: border-color var(--dicode-duration-fast) var(--dicode-ease);
 }
-.card:hover { border-color: var(--dicode-border-strong); }
+.card:hover {
+  border-color: var(--dicode-border-strong);
+}
 
-.meta { font-size: var(--dicode-text-sm); color: var(--dicode-muted); }
+.meta {
+  font-size: var(--dicode-text-sm);
+  color: var(--dicode-muted);
+}
 
 /* ── TABLES ───────────────────────────────────────────────────────── */
 table {
@@ -120,13 +199,19 @@ th, td {
   border-bottom: var(--dicode-border-width) solid var(--dicode-border);
   font-size: var(--dicode-text-base);
 }
-th { background: var(--dicode-bg-alt); font-weight: var(--dicode-font-semibold); color: var(--dicode-heading); }
-tr:last-child td { border-bottom: none; }
+th {
+  background: var(--dicode-bg-alt);
+  font-weight: var(--dicode-font-semibold);
+  color: var(--dicode-heading);
+}
+tr:last-child td {
+  border-bottom: none;
+}
 
 /* ── BADGES ───────────────────────────────────────────────────────── */
 .badge {
   display: inline-block;
-  padding: .2em .6em;
+  padding: 0.2em 0.6em;
   border-radius: var(--dicode-radius-sm);
   font-size: var(--dicode-text-xs);
   font-weight: var(--dicode-font-semibold);
@@ -138,17 +223,49 @@ tr:last-child td { border-bottom: none; }
    its dark-theme value: the green/red/yellow tokens all change under
    [data-theme="light"], and a baked-in tint would keep tinting with a hue the
    active theme no longer uses. Kept identical to dc-status-badge.js's copy. */
-.badge-success   { background: color-mix(in srgb, var(--dicode-green) 15%, transparent);  color: var(--dicode-green);  border-color: color-mix(in srgb, var(--dicode-green) 30%, transparent); }
-.badge-failure   { background: color-mix(in srgb, var(--dicode-red) 15%, transparent);    color: var(--dicode-red);    border-color: color-mix(in srgb, var(--dicode-red) 30%, transparent); }
-.badge-running   { background: color-mix(in srgb, var(--dicode-yellow) 15%, transparent); color: var(--dicode-yellow); border-color: color-mix(in srgb, var(--dicode-yellow) 30%, transparent); }
+.badge-success {
+  background: color-mix(in srgb, var(--dicode-green) 15%, transparent);
+  color: var(--dicode-green);
+  border-color: color-mix(in srgb, var(--dicode-green) 30%, transparent);
+}
+.badge-failure {
+  background: color-mix(in srgb, var(--dicode-red) 15%, transparent);
+  color: var(--dicode-red);
+  border-color: color-mix(in srgb, var(--dicode-red) 30%, transparent);
+}
+.badge-running {
+  background: color-mix(in srgb, var(--dicode-yellow) 15%, transparent);
+  color: var(--dicode-yellow);
+  border-color: color-mix(in srgb, var(--dicode-yellow) 30%, transparent);
+}
 /* crashlooping (#458): a daemon stuck in a spawn/crash/backoff loop — stronger
    red than badge-failure so a persistently-broken daemon stands out. */
-.badge-crashlooping { background: color-mix(in srgb, var(--dicode-red) 28%, transparent); color: var(--dicode-red); border-color: color-mix(in srgb, var(--dicode-red) 40%, transparent); }
-.badge-cancelled { background: var(--dicode-card-bg); color: var(--dicode-muted); border-color: var(--dicode-border); }
-.badge-manual    { background: var(--dicode-card-bg); color: var(--dicode-muted); border-color: var(--dicode-border); }
+.badge-crashlooping {
+  background: color-mix(in srgb, var(--dicode-red) 28%, transparent);
+  color: var(--dicode-red);
+  border-color: color-mix(in srgb, var(--dicode-red) 40%, transparent);
+}
+.badge-cancelled {
+  background: var(--dicode-card-bg);
+  color: var(--dicode-muted);
+  border-color: var(--dicode-border);
+}
+.badge-manual {
+  background: var(--dicode-card-bg);
+  color: var(--dicode-muted);
+  border-color: var(--dicode-border);
+}
 /* suspended (#95): a run paused waiting on user input — blue "waiting on you". */
-.badge-suspended { background: var(--dicode-blue-tint); color: var(--dicode-sky); border-color: var(--dicode-blue-tint-strong); }
-.badge-resumed   { background: var(--dicode-card-bg); color: var(--dicode-muted); border-color: var(--dicode-border); }
+.badge-suspended {
+  background: var(--dicode-blue-tint);
+  color: var(--dicode-sky);
+  border-color: var(--dicode-blue-tint-strong);
+}
+.badge-resumed {
+  background: var(--dicode-card-bg);
+  color: var(--dicode-muted);
+  border-color: var(--dicode-border);
+}
 
 /* ── PILLS & TAGS ─────────────────────────────────────────────────── */
 .pill {
@@ -158,7 +275,7 @@ tr:last-child td { border-bottom: none; }
   color: var(--dicode-sky);
   font-size: var(--dicode-text-xs);
   font-weight: var(--dicode-font-semibold);
-  padding: .3rem .8rem;
+  padding: 0.3rem 0.8rem;
   border-radius: var(--dicode-radius-pill);
 }
 
@@ -167,7 +284,7 @@ tr:last-child td { border-bottom: none; }
   border: var(--dicode-border-width) solid var(--dicode-blue-tint-strong);
   color: var(--dicode-sky);
   font-size: var(--dicode-text-xs);
-  padding: .2rem .6rem;
+  padding: 0.2rem 0.6rem;
   border-radius: var(--dicode-radius-sm);
 }
 
@@ -193,8 +310,14 @@ label {
   margin-bottom: var(--dicode-space-xs);
 }
 
-.cfg-form .field { margin-bottom: var(--dicode-space-sm); }
-.cfg-form .hint  { font-size: var(--dicode-text-xs); color: var(--dicode-muted); margin-top: .2rem; }
+.cfg-form .field {
+  margin-bottom: var(--dicode-space-sm);
+}
+.cfg-form .hint {
+  font-size: var(--dicode-text-xs);
+  color: var(--dicode-muted);
+  margin-top: 0.2rem;
+}
 
 /* ── CODE BLOCKS ──────────────────────────────────────────────────── */
 pre, code {
@@ -211,11 +334,26 @@ pre {
   line-height: var(--dicode-leading-normal);
   white-space: pre-wrap;
 }
-code { padding: .1rem .3rem; }
-pre code { padding: 0; background: none; }
+code {
+  padding: 0.1rem 0.3rem;
+}
+pre code {
+  padding: 0;
+  background: none;
+}
 
 /* ── SCROLLBAR ────────────────────────────────────────────────────── */
-::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-track { background: var(--dicode-bg); }
-::-webkit-scrollbar-thumb { background: var(--dicode-bg-alt); border-radius: var(--dicode-radius-sm); }
-::-webkit-scrollbar-thumb:hover { background: var(--dicode-blue); }
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--dicode-bg);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--dicode-bg-alt);
+  border-radius: var(--dicode-radius-sm);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--dicode-blue);
+}

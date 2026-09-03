@@ -5,20 +5,22 @@
 // Mirrors dicode-site/site/src/utils/theme.ts one-for-one (vanilla JS,
 // no framework) so the behavior is identical across surfaces.
 
-const STORAGE_KEY = 'dicode-theme';
+const STORAGE_KEY = "dicode-theme";
 
 export function getStoredTheme() {
   try {
     const v = localStorage.getItem(STORAGE_KEY);
-    return v === 'light' || v === 'dark' ? v : null;
+    return v === "light" || v === "dark" ? v : null;
   } catch {
     return null;
   }
 }
 
 export function getSystemTheme() {
-  if (typeof window === 'undefined' || !window.matchMedia) return 'dark';
-  return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+  if (typeof window === "undefined" || !globalThis.matchMedia) return "dark";
+  return globalThis.matchMedia("(prefers-color-scheme: light)").matches
+    ? "light"
+    : "dark";
 }
 
 export function getCurrentTheme() {
@@ -30,13 +32,15 @@ export function getCurrentTheme() {
 // monacoTheme() when creating the editor and also subscribe to
 // `dicode-theme-change` so they can call monaco.editor.setTheme() live.
 export function monacoTheme() {
-  return getCurrentTheme() === 'light' ? 'vs' : 'vs-dark';
+  return getCurrentTheme() === "light" ? "vs" : "vs-dark";
 }
 
 export function applyTheme(theme) {
-  document.documentElement.setAttribute('data-theme', theme);
+  document.documentElement.setAttribute("data-theme", theme);
   document.documentElement.style.colorScheme = theme;
-  window.dispatchEvent(new CustomEvent('dicode-theme-change', { detail: theme }));
+  globalThis.dispatchEvent(
+    new CustomEvent("dicode-theme-change", { detail: theme }),
+  );
 }
 
 export function setTheme(theme) {
@@ -49,7 +53,7 @@ export function setTheme(theme) {
 }
 
 export function toggleTheme() {
-  const next = getCurrentTheme() === 'dark' ? 'light' : 'dark';
+  const next = getCurrentTheme() === "dark" ? "light" : "dark";
   setTheme(next);
   return next;
 }
@@ -59,9 +63,12 @@ export function toggleTheme() {
 // follow their OS.
 export function initTheme() {
   applyTheme(getCurrentTheme());
-  if (!getStoredTheme() && window.matchMedia) {
-    window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
-      if (!getStoredTheme()) applyTheme(getSystemTheme());
-    });
+  if (!getStoredTheme() && globalThis.matchMedia) {
+    globalThis.matchMedia("(prefers-color-scheme: light)").addEventListener(
+      "change",
+      () => {
+        if (!getStoredTheme()) applyTheme(getSystemTheme());
+      },
+    );
   }
 }

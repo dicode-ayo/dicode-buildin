@@ -1,19 +1,19 @@
 (function () {
-  'use strict';
+  "use strict";
 
   // Storage key is task-scoped so this preset's session_id doesn't collide
   // with the OpenAI-compatible buildin/ai-agent's session at /hooks/ai.
-  var STORAGE_KEY = "dicode-ai-claude-session";
-  var sessionId = localStorage.getItem(STORAGE_KEY) || "";
+  const STORAGE_KEY = "dicode-ai-claude-session";
+  let sessionId = localStorage.getItem(STORAGE_KEY) || "";
 
-  var $messages = document.getElementById("messages");
-  var $form     = document.getElementById("prompt-form");
-  var $prompt   = document.getElementById("prompt");
-  var $send     = document.getElementById("send");
-  var $newChat  = document.getElementById("new-chat");
-  var $status   = document.getElementById("status");
-  var $setup    = document.getElementById("setup");
-  var $setupDetail = document.getElementById("setup-detail");
+  const $messages = document.getElementById("messages");
+  const $form = document.getElementById("prompt-form");
+  const $prompt = document.getElementById("prompt");
+  const $send = document.getElementById("send");
+  const $newChat = document.getElementById("new-chat");
+  const $status = document.getElementById("status");
+  const $setup = document.getElementById("setup");
+  const $setupDetail = document.getElementById("setup-detail");
 
   function setStatus(text) {
     $status.textContent = text || "";
@@ -25,7 +25,7 @@
   }
 
   function addBubble(role, text) {
-    var el = document.createElement("div");
+    const el = document.createElement("div");
     el.className = "bubble " + role;
     appendTextWithLinks(el, text);
     $messages.appendChild(el);
@@ -44,10 +44,10 @@
   //   - CodeQL recognizes URL-parser-with-protocol-check as a
   //     sanitizer for the "DOM text reinterpreted as HTML" alert; a
   //     plain regex .test() is not modeled as narrowing.
-  var URL_SPLIT_RE = /(https?:\/\/[^\s<>"'()]+)/g;
+  const URL_SPLIT_RE = /(https?:\/\/[^\s<>"'()]+)/g;
   function safeURL(chunk) {
     try {
-      var u = new URL(chunk);
+      const u = new URL(chunk);
       if (u.protocol === "http:" || u.protocol === "https:") {
         return u.href;
       }
@@ -55,12 +55,12 @@
     return null;
   }
   function appendTextWithLinks(parent, text) {
-    var parts = String(text).split(URL_SPLIT_RE);
-    for (var i = 0; i < parts.length; i++) {
-      var chunk = parts[i];
-      var safeHref = i % 2 === 1 ? safeURL(chunk) : null;
+    const parts = String(text).split(URL_SPLIT_RE);
+    for (let i = 0; i < parts.length; i++) {
+      const chunk = parts[i];
+      const safeHref = i % 2 === 1 ? safeURL(chunk) : null;
       if (safeHref !== null) {
-        var a = document.createElement("a");
+        const a = document.createElement("a");
         a.href = safeHref;
         a.target = "_blank";
         a.rel = "noopener noreferrer";
@@ -97,7 +97,7 @@
   });
 
   async function send() {
-    var prompt = $prompt.value.trim();
+    const prompt = $prompt.value.trim();
     if (!prompt) return;
 
     addBubble("user", prompt);
@@ -106,10 +106,10 @@
     $send.disabled = true;
     setStatus("Thinking…");
 
-    var thinking = addBubble("assistant pending", "…");
+    const thinking = addBubble("assistant pending", "…");
 
     try {
-      var res = await fetch(window.location.pathname, {
+      const res = await fetch(globalThis.location.pathname, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -118,7 +118,7 @@
         }),
       });
 
-      var data;
+      let data;
       try {
         data = await res.json();
       } catch (_) {
@@ -129,7 +129,7 @@
       thinking.remove();
 
       if (!data || data.ok === false) {
-        var msg = (data && data.error) || ("HTTP " + res.status);
+        const msg = (data && data.error) || ("HTTP " + res.status);
         // Surface common setup errors as the dedicated setup card rather
         // than as a generic error bubble — the operator needs to act, not
         // the chatter.
@@ -149,11 +149,16 @@
         sessionId = data.session_id;
         localStorage.setItem(STORAGE_KEY, sessionId);
       }
-      var modelLabel = data.model ? data.model : "claude";
-      setStatus(modelLabel + (sessionId ? " · session " + sessionId.slice(0, 8) : ""));
+      const modelLabel = data.model ? data.model : "claude";
+      setStatus(
+        modelLabel + (sessionId ? " · session " + sessionId.slice(0, 8) : ""),
+      );
     } catch (e) {
       thinking.remove();
-      addBubble("error", "Network error: " + (e && e.message ? e.message : String(e)));
+      addBubble(
+        "error",
+        "Network error: " + (e && e.message ? e.message : String(e)),
+      );
       setStatus("");
     } finally {
       $prompt.disabled = false;

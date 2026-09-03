@@ -10,17 +10,32 @@ import { setupHarness } from "../sdk-test.ts";
 await setupHarness(import.meta.url);
 
 type ToolsList = {
-  result: { tools: Array<{ name: string; inputSchema: { properties: Record<string, unknown> } }> };
+  result: {
+    tools: Array<
+      { name: string; inputSchema: { properties: Record<string, unknown> } }
+    >;
+  };
 };
-type ToolCall = { result: { content: Array<{ text: string }> }; error?: { message: string } };
+type ToolCall = {
+  result: { content: Array<{ text: string }> };
+  error?: { message: string };
+};
 
 function call(name: string, args: Record<string, unknown>) {
-  input = { jsonrpc: "2.0", id: 1, method: "tools/call", params: { name, arguments: args } };
+  input = {
+    jsonrpc: "2.0",
+    id: 1,
+    method: "tools/call",
+    params: { name, arguments: args },
+  };
 }
 
 async function textOf(): Promise<string> {
   const result = (await runTask()) as ToolCall;
-  assert.ok(!result.error, `unexpected JSON-RPC error: ${result.error?.message}`);
+  assert.ok(
+    !result.error,
+    `unexpected JSON-RPC error: ${result.error?.message}`,
+  );
   return result.result.content[0].text;
 }
 
@@ -31,7 +46,7 @@ test("switch_dev_mode tool advertises branch, base, run_id args", async () => {
   assert.ok(tool, "switch_dev_mode tool missing from tools/list");
   const props = tool!.inputSchema.properties;
   assert.ok(props["branch"], "branch property missing");
-  assert.ok(props["base"],   "base property missing");
+  assert.ok(props["base"], "base property missing");
   assert.ok(props["run_id"], "run_id property missing");
 });
 
@@ -42,11 +57,19 @@ test("switch_dev_mode tool does not advertise local_path", async () => {
   input = { jsonrpc: "2.0", id: 1, method: "tools/list", params: {} };
   const tools = ((await runTask()) as ToolsList).result.tools;
   const tool = tools.find((t) => t.name === "switch_dev_mode");
-  assert.ok(!tool!.inputSchema.properties["local_path"], "local_path is exposed as a tool argument");
+  assert.ok(
+    !tool!.inputSchema.properties["local_path"],
+    "local_path is exposed as a tool argument",
+  );
 });
 
 test("switch_dev_mode dispatcher drops a local_path the caller sends anyway", async () => {
-  call("switch_dev_mode", { source: "demo", enabled: true, branch: "fix/abc", local_path: "/etc" });
+  call("switch_dev_mode", {
+    source: "demo",
+    enabled: true,
+    branch: "fix/abc",
+    local_path: "/etc",
+  });
   await textOf();
   const sent = dicode._setDevModeCalls[0];
   assert.equal(sent.local_path, undefined);
@@ -69,7 +92,10 @@ test("switch_dev_mode dispatcher forwards branch/base/run_id to the SDK", async 
   assert.equal(sent.base, "main");
   assert.equal(sent.run_id, "r1");
   // The tool returns what the daemon returned, not a pointer to another call.
-  assert.ok(text.includes('"ok"'), `set_dev_mode result missing from reply: ${text}`);
+  assert.ok(
+    text.includes('"ok"'),
+    `set_dev_mode result missing from reply: ${text}`,
+  );
 });
 
 // An MCP client's arguments are not validated against the tool schema before
@@ -95,8 +121,14 @@ test("test_task runs the task's tests and returns the result", async () => {
   assert.equal(dicode._testTaskCalls[0], "demo/thing");
   // The reply carries the daemon's result verbatim, keyed as pkg/tasktest
   // spells it.
-  assert.ok(text.includes('"taskID"'), `test result missing from reply: ${text}`);
-  assert.ok(text.includes("demo/thing"), `test result missing from reply: ${text}`);
+  assert.ok(
+    text.includes('"taskID"'),
+    `test result missing from reply: ${text}`,
+  );
+  assert.ok(
+    text.includes("demo/thing"),
+    `test result missing from reply: ${text}`,
+  );
 });
 
 test("test_task requires an id", async () => {
@@ -110,5 +142,8 @@ test("list_sources returns the daemon's source listing", async () => {
   call("list_sources", {});
   dicode._sources.push({ name: "demo", type: "taskset", dev_mode: false });
   const text = await textOf();
-  assert.ok(text.includes("demo"), `source listing missing from reply: ${text}`);
+  assert.ok(
+    text.includes("demo"),
+    `source listing missing from reply: ${text}`,
+  );
 });
