@@ -1,0 +1,142 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test-tasks:
+    name: Test tasks (Deno)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Run Deno unit tests
+        run: deno test --allow-all --config=deno.json './**/task.test.ts'
+
+  test-daemon:
+    name: Load and test via the dicode daemon
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DICODE_DATA_DIR: /tmp/dicode-ci
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      # The daemon is the authority on whether a task.yaml is valid — it runs
+      # the strict validator this repo has no Go to call directly.
+      - name: Install the dicode binary
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag=$(gh release view --repo dicode-ayo/dicode-core --json tagName --jq .tagName)
+          gh release download "$tag" --repo dicode-ayo/dicode-core \
+            --pattern '*-linux-amd64.tar.gz' --output /tmp/dicode.tar.gz
+          tar -xzf /tmp/dicode.tar.gz -C /tmp
+          install -m755 "$(find /tmp -maxdepth 2 -name dicode -type f | head -1)" ./dicode
+          ./dicode version
+
+      - name: Verify deno.lock is up to date
+        run: ./dicode deno relock --check .
+
+      - name: Start the daemon and assert every entry registered
+        run: |
+          set -euo pipefail
+          mkdir -p "$DICODE_DATA_DIR"
+
+          cat > "$DICODE_DATA_DIR/dicode-ci.yaml" <<SPECEOF
+          data_dir: $DICODE_DATA_DIR
+          database:
+            path: \${DATADIR}/data.db
+            type: sqlite
+          log_level: warn
+          server:
+            port: 18765
+            auth: false
+            mcp: false
+            tray: false
+          relay:
+            enabled: false
+          spec:
+            entries:
+              buildin:
+                ref:
+                  path: $GITHUB_WORKSPACE/taskset.yaml
+                  watch: false
+          SPECEOF
+
+          ./dicode daemon --config "$DICODE_DATA_DIR/dicode-ci.yaml" \
+            > "$DICODE_DATA_DIR/daemon.log" 2>&1 &
+          DAEMON_PID=$!
+          trap "kill $DAEMON_PID 2>/dev/null || true" EXIT
+
+          # Poll the IPC socket, not HTTP — the CLI talks over IPC and that
+          # path has to be up before `dicode list` or `dicode task test`.
+          for i in $(seq 1 60); do
+            test -S "$DICODE_DATA_DIR/daemon.sock" && break
+            if [ "$i" -eq 60 ]; then
+              echo "Daemon did not become ready in 30 s"
+              cat "$DICODE_DATA_DIR/daemon.log"
+              exit 1
+            fi
+            sleep 0.5
+          done
+
+          # A task.yaml the validator rejects never registers, so comparing the
+          # registered count against the manifest catches a bad spec that a
+          # unit test would not.
+          want=$(deno eval --quiet '
+            import { parse } from "jsr:@std/yaml@1";
+            const ts = parse(await Deno.readTextFile("taskset.yaml"));
+            console.log(Object.keys(ts.spec.entries).length);
+          ')
+          got=$(DICODE_DATA_DIR="$DICODE_DATA_DIR" ./dicode list | grep -c '^buildin/' || true)
+          echo "taskset entries: $want, registered: $got"
+          if [ "$want" != "$got" ]; then
+            echo "::error::$((want - got)) taskset entries failed to register"
+            DICODE_DATA_DIR="$DICODE_DATA_DIR" ./dicode list
+            cat "$DICODE_DATA_DIR/daemon.log"
+            exit 1
+          fi
+
+          DICODE_DATA_DIR="$DICODE_DATA_DIR" ./dicode task test buildin/webui \
+            --format=junit > "$RUNNER_TEMP/buildin-webui.xml"
+
+      - name: Upload JUnit results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: task-test-results
+          path: ${{ runner.temp }}/buildin-webui.xml
+          retention-days: 7
+          if-no-files-found: warn
+
+      - name: Upload daemon log on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: daemon-log
+          path: ${{ env.DICODE_DATA_DIR }}/daemon.log
+          retention-days: 3

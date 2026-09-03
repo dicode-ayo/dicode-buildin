@@ -1,0 +1,2 @@
+# `nodeModulesDir: auto` in deno.json materialises npm deps here.
+node_modules/

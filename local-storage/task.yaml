@@ -1,0 +1,50 @@
+apiVersion: dicode/v1
+kind: Task
+name: "Local Storage"
+description: |
+  Generic filesystem-backed blob store. Stores opaque base64-encoded
+  ciphertext blobs under a configurable root directory. The required
+  prefix param scopes keys to a domain (e.g. "run-inputs/" for #233
+  input persistence, "relay/" for relay-client identity). Core does
+  the encryption; this task only sees ciphertext.
+
+runtime: deno
+
+trigger:
+  manual: true
+
+params:
+  op:
+    type: string
+    required: true
+    description: "Operation: put | get | delete"
+  key:
+    type: string
+    required: true
+    description: "Storage key, expected shape: run-inputs/<runID>"
+  value:
+    type: string
+    default: ""
+    description: "Base64-encoded ciphertext blob (put only)"
+  root:
+    type: string
+    default: "${DATADIR}/run-inputs"
+    description: "Storage root directory (overridable for tests)"
+  prefix:
+    type: string
+    default: "run-inputs/"
+    description: "Required prefix on storage keys. Defaults to 'run-inputs/' for run-input persistence; future consumers (e.g. relay identity) override per call."
+
+permissions:
+  fs:
+    - path: "${DATADIR}/run-inputs"
+      permission: rw
+    - path: "${DATADIR}/relay-store"
+      permission: rw
+
+# Self-opt-out from input persistence to avoid recursion: this task IS the
+# storage backend; persisting its own params would loop indefinitely.
+run_inputs:
+  enabled: false
+
+timeout: 30s
