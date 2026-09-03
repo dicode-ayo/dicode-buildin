@@ -27,7 +27,7 @@ jobs:
           deno-version: v2.x
 
       - name: Run Deno unit tests
-        run: deno test --allow-all --config=deno.json './**/task.test.ts'
+        run: deno test --allow-all --config=deno.json './**/task.test.ts' './taskset.test.ts'
 
   test-daemon:
     name: Load and test via the dicode daemon
@@ -112,10 +112,18 @@ jobs:
             const ts = parse(await Deno.readTextFile("taskset.yaml"));
             console.log(Object.keys(ts.spec.entries).length);
           ')
-          got=$(DICODE_DATA_DIR="$DICODE_DATA_DIR" ./dicode list | grep -c '^buildin/' || true)
+
+          # Poll rather than sample once: a kind: PipelineTask entry retries
+          # until every stage task it names has registered, so it lands after
+          # the plain tasks do.
+          for i in $(seq 1 60); do
+            got=$(DICODE_DATA_DIR="$DICODE_DATA_DIR" ./dicode list | grep -c '^buildin/' || true)
+            [ "$want" = "$got" ] && break
+            sleep 0.5
+          done
           echo "taskset entries: $want, registered: $got"
           if [ "$want" != "$got" ]; then
-            echo "::error::$((want - got)) taskset entries failed to register"
+            echo "::error::$((want - got)) taskset entries failed to register within 30 s"
             DICODE_DATA_DIR="$DICODE_DATA_DIR" ./dicode list
             cat "$DICODE_DATA_DIR/daemon.log"
             exit 1

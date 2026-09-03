@@ -4,6 +4,6 @@
     "lib": ["deno.window"]
   },
   "tasks": {
-    "test": "deno test --allow-all ./**/task.test.ts"
+    "test": "deno test --allow-all ./**/task.test.ts ./taskset.test.ts"
   }
 }
