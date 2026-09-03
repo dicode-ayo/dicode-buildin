@@ -61,7 +61,7 @@ jobs:
       - name: Verify deno.lock is up to date
         run: ./dicode deno relock --check .
 
-      - name: Start the daemon and assert every entry registered
+      - name: Start the daemon and assert the taskset contract
         run: |
           set -euo pipefail
           mkdir -p "$DICODE_DATA_DIR"
@@ -104,7 +104,7 @@ jobs:
             sleep 0.5
           done
 
-          deno run --allow-read --allow-net scripts/assert-registered.ts \
+          deno run --allow-read --allow-net scripts/assert-taskset.ts \
             http://127.0.0.1:18765
 
           DICODE_DATA_DIR="$DICODE_DATA_DIR" ./dicode task test buildin/webui \

@@ -17,6 +17,7 @@ const taskset: Yaml = parseYaml(await Deno.readTextFile("taskset.yaml"));
 const pipeline: Yaml = parseYaml(
   await Deno.readTextFile("task-create/task.yaml"),
 );
+const autoFixSkill = await Deno.readTextFile("skills/dicode-auto-fix.md");
 
 function entry(name: string): Yaml {
   const e = taskset.spec?.entries?.[name];
@@ -160,4 +161,69 @@ Deno.test("task-create threads the fire params into its stages", () => {
   const verifyDir = (last.overrides?.params ?? [])
     .find((p: Yaml) => p.name === "task_dir")?.default;
   assertEquals(verifyDir, "${input.output.caller_context}", "verify stage task_dir");
+});
+
+Deno.test("auto-fix grants the diagnose-fix-land capabilities", () => {
+  const d = entry("auto-fix").overrides?.dicode;
+  assert(d, "auto-fix overrides.dicode is missing");
+  for (
+    const cap of [
+      "runs_replay",
+      "runs_get_input",
+      "runs_pin_input",
+      "runs_unpin_input",
+      "sources_set_dev_mode",
+      "tasks_test",
+      "git_commit_push",
+      "list_tasks",
+      "get_runs",
+    ]
+  ) {
+    assertEquals(d[cap], true, `${cap} must be granted to auto-fix`);
+  }
+
+  const tasks: string[] = d.tasks ?? [];
+  assert(
+    !tasks.includes("git-pr"),
+    `bare "git-pr" can never match a namespaced call id; want "buildin/git-pr"`,
+  );
+  assert(
+    tasks.includes("buildin/git-pr"),
+    `auto-fix tasks slice missing buildin/git-pr; got ${JSON.stringify(tasks)}`,
+  );
+});
+
+Deno.test("the auto-fix skill names tools, not SDK methods", () => {
+  // The skill names the tools the model is handed, not the SDK methods behind
+  // them: a model cannot call the SDK, so an SDK name in the skill describes a
+  // capability the reader does not have.
+  for (
+    const term of [
+      "dicode_get_run_input",
+      "dicode_pin_run_input",
+      "dicode_unpin_run_input",
+      "dicode_set_dev_mode",
+      "dicode_git_commit_push",
+      "dicode_test_task",
+      "dicode_replay_run",
+      "max_iterations",
+    ]
+  ) {
+    assert(autoFixSkill.includes(term), `skill missing required term "${term}"`);
+  }
+  for (
+    const forbidden of [
+      "dicode.runs.",
+      "dicode.tasks.",
+      "dicode.sources.",
+      "dicode.git.",
+      "Deno.readTextFile",
+      "Deno.writeTextFile",
+    ]
+  ) {
+    assert(
+      !autoFixSkill.includes(forbidden),
+      `skill names "${forbidden}", which the model has no way to call`,
+    );
+  }
 });
