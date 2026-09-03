@@ -63,7 +63,11 @@ function recordSuspend(): Array<Record<string, unknown>> {
 function runTurnStep(
   input: unknown,
   state: unknown,
-  output: Record<string, unknown> = { json: async () => {} },
+  output: Record<string, unknown> = {
+    json: () => {
+      return Promise.resolve();
+    },
+  },
 ): Promise<Record<string, unknown>> {
   return steps.turn({
     params,
@@ -160,7 +164,10 @@ test("one-shot: not_configured turn publishes the envelope and throws instead of
       input: undefined,
       dicode,
       output,
-      mcp: { list_tools: async () => [], call: async () => ({}) },
+      mcp: {
+        list_tools: () => Promise.resolve([]),
+        call: () => Promise.resolve({}),
+      },
     })
   );
 
@@ -346,12 +353,13 @@ test("self-id filter excludes only the exact task_id, not prefix matches", async
   params.set("prompt", "hi");
 
   dicode.task_id = "buildin/ai-agent";
-  dicode.list_tasks = async () => [
-    { id: "buildin/ai-agent" }, // self — must be excluded
-    { id: "buildin/ai-agent-helper" }, // looks like self, must NOT be excluded
-    { id: "team/ai-agent" }, // matches basename, must NOT be excluded
-    { id: "other/something" },
-  ];
+  dicode.list_tasks = () =>
+    Promise.resolve([
+      { id: "buildin/ai-agent" }, // self — must be excluded
+      { id: "buildin/ai-agent-helper" }, // looks like self, must NOT be excluded
+      { id: "team/ai-agent" }, // matches basename, must NOT be excluded
+      { id: "other/something" },
+    ]);
 
   http.mock("POST", "http://localhost:11434/v1/chat/completions", {
     status: 200,
@@ -611,7 +619,7 @@ test("a run with no granted caps is offered no built-in tools", async () => {
   useLocal();
   params.set("prompt", "hi");
   dicode.caps = [];
-  dicode.list_tasks = async () => [{ id: "other/something" }];
+  dicode.list_tasks = () => Promise.resolve([{ id: "other/something" }]);
 
   http.mock("POST", "http://localhost:11434/v1/chat/completions", {
     status: 200,
@@ -666,7 +674,7 @@ test("dicode_list_sources reaches the SDK when sources.list is granted", async (
   params.set("prompt", "which sources are there");
   dicode.caps = ["sources.list"];
   const listed = [{ name: "scratch", type: "taskset", dev_mode: false }];
-  dicode.sources = { list: async () => listed };
+  dicode.sources = { list: () => Promise.resolve(listed) };
 
   const { toolResult } = await runBuiltinCall("dicode_list_sources", {});
 
@@ -679,13 +687,13 @@ test("a built-in call reaches the SDK and its result feeds back to the model", a
   dicode.caps = ["tasks.test"];
   const tested: string[] = [];
   dicode.tasks = {
-    test: async (taskID: string) => {
+    test: (taskID: string) => {
       tested.push(taskID);
-      return { passed: 2, failed: 0 };
+      return Promise.resolve({ passed: 2, failed: 0 });
     },
   };
   // run_task must not be reached: built-ins bypass task dispatch entirely.
-  dicode.run_task = async () => {
+  dicode.run_task = () => {
     throw new Error("run_task must not be called for a built-in");
   };
 
@@ -707,9 +715,12 @@ test("set_dev_mode pins the clone to this run, ignoring any model-supplied id", 
   dicode.run_id = "run-abc";
   const calls: { name: string; opts: DevModeOpts }[] = [];
   dicode.sources = {
-    set_dev_mode: async (name: string, opts: DevModeOpts) => {
+    set_dev_mode: (name: string, opts: DevModeOpts) => {
       calls.push({ name, opts });
-      return { ok: true, clone_path: "/data/dev-clones/scratch/run-abc" };
+      return Promise.resolve({
+        ok: true,
+        clone_path: "/data/dev-clones/scratch/run-abc",
+      });
     },
   };
 
@@ -734,9 +745,9 @@ test("commit_push defaults the commit author instead of asking the model to inve
   dicode.task_id = "buildin/auto-fix";
   const calls: { sourceID: string; opts: CommitPushOpts }[] = [];
   dicode.git = {
-    commit_push: async (sourceID: string, opts: CommitPushOpts) => {
+    commit_push: (sourceID: string, opts: CommitPushOpts) => {
       calls.push({ sourceID, opts });
-      return { commit: "abc1234" };
+      return Promise.resolve({ commit: "abc1234" });
     },
   };
 
@@ -759,9 +770,9 @@ test("commit_push takes its branch prefix from config, not from the model", asyn
   dicode.caps = ["git.commit_push"];
   const calls: CommitPushOpts[] = [];
   dicode.git = {
-    commit_push: async (_id: string, opts: CommitPushOpts) => {
+    commit_push: (_id: string, opts: CommitPushOpts) => {
       calls.push(opts);
-      return { commit: "abc1234" };
+      return Promise.resolve({ commit: "abc1234" });
     },
   };
 
@@ -809,9 +820,9 @@ test("set_dev_mode withholds local_path: the model cannot redirect taskset resol
   dicode.caps = ["sources.set_dev_mode"];
   const calls: DevModeOpts[] = [];
   dicode.sources = {
-    set_dev_mode: async (_name: string, opts: DevModeOpts) => {
+    set_dev_mode: (_name: string, opts: DevModeOpts) => {
       calls.push(opts);
-      return { ok: true };
+      return Promise.resolve({ ok: true });
     },
   };
 
@@ -843,9 +854,9 @@ test("commit_push withholds allow_main: the model cannot waive branch protection
   dicode.caps = ["git.commit_push"];
   const calls: CommitPushOpts[] = [];
   dicode.git = {
-    commit_push: async (_id: string, opts: CommitPushOpts) => {
+    commit_push: (_id: string, opts: CommitPushOpts) => {
       calls.push(opts);
-      return { commit: "abc1234" };
+      return Promise.resolve({ commit: "abc1234" });
     },
   };
 

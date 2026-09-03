@@ -59,12 +59,12 @@ test("removes orphan clones, keeps active run", async () => {
     env.set("DICODE_DATADIR", dataDir);
 
     // Stub list_tasks: return a single task; get_runs returns runs for it.
-    dicode.list_tasks = async () => [{ id: "my-task" }];
-    dicode.get_runs = async (_id: string) => {
-      return [
+    dicode.list_tasks = () => Promise.resolve([{ id: "my-task" }]);
+    dicode.get_runs = (_id: string) => {
+      return Promise.resolve([
         { ID: "run-active-1", Status: "running" },
         { ID: "run-done-1", Status: "success" },
-      ];
+      ]);
     };
 
     const result = await runTask() as {
@@ -97,12 +97,12 @@ test("protects a suspended run's clone, sweeps a terminal run's clone", async ()
 
     env.set("DICODE_DATADIR", dataDir);
 
-    dicode.list_tasks = async () => [{ id: "my-task" }];
-    dicode.get_runs = async (_id: string) => {
-      return [
+    dicode.list_tasks = () => Promise.resolve([{ id: "my-task" }]);
+    dicode.get_runs = (_id: string) => {
+      return Promise.resolve([
         { ID: "run-suspended-1", Status: "suspended" },
         { ID: "run-failed-1", Status: "failed" },
-      ];
+      ]);
     };
 
     const result = await runTask() as {
@@ -131,8 +131,8 @@ test("returns early with note when dev-clones dir does not exist", async () => {
 
   env.set("DICODE_DATADIR", dataDir);
 
-  dicode.list_tasks = async () => [{ id: "some-task" }];
-  dicode.get_runs = async () => [];
+  dicode.list_tasks = () => Promise.resolve([{ id: "some-task" }]);
+  dicode.get_runs = () => Promise.resolve([]);
 
   try {
     const result = await runTask() as { ok: boolean; note?: string };
@@ -157,8 +157,8 @@ test("swallows get_runs error for task deregistered between list and get", async
     env.set("DICODE_DATADIR", dataDir);
 
     // list_tasks returns a task, but get_runs throws (task deregistered between calls).
-    dicode.list_tasks = async () => [{ id: "disappearing-task" }];
-    dicode.get_runs = async () => {
+    dicode.list_tasks = () => Promise.resolve([{ id: "disappearing-task" }]);
+    dicode.get_runs = () => {
       throw new Error("task not found: disappearing-task");
     };
 
@@ -186,8 +186,8 @@ test("non-directory entries under source dir are ignored", async () => {
     });
 
     env.set("DICODE_DATADIR", dataDir);
-    dicode.list_tasks = async () => [{ id: "some-task" }];
-    dicode.get_runs = async () => [];
+    dicode.list_tasks = () => Promise.resolve([{ id: "some-task" }]);
+    dicode.get_runs = () => Promise.resolve([]);
 
     const result = await runTask() as {
       ok: boolean;

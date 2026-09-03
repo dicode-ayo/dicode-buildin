@@ -273,7 +273,7 @@ export default class SysTray extends EventEmitter<Events> {
     this._ready = this.init();
   }
 
-  private async run(binPath: string) {
+  private run(binPath: string) {
     this._process = new Deno.Command(binPath, {
       stdin: "piped",
       stdout: "piped",
@@ -300,6 +300,7 @@ export default class SysTray extends EventEmitter<Events> {
         }
       }
     })();
+    return Promise.resolve();
   }
 
   private async init() {

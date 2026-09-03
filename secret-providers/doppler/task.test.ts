@@ -27,16 +27,25 @@ interface MockSdk {
 function makeOutput() {
   const calls: { value: Record<string, string>; opts: { secret: true } }[] = [];
   // deno-lint-ignore no-explicit-any
-  const fn: any = async (
+  const fn: any = (
     value: Record<string, string>,
     opts: { secret: true },
   ) => {
     calls.push({ value, opts });
+    return Promise.resolve();
   };
-  fn.html = async () => {};
-  fn.text = async () => {};
-  fn.image = async () => {};
-  fn.file = async () => {};
+  fn.html = () => {
+    return Promise.resolve();
+  };
+  fn.text = () => {
+    return Promise.resolve();
+  };
+  fn.image = () => {
+    return Promise.resolve();
+  };
+  fn.file = () => {
+    return Promise.resolve();
+  };
   fn.calls = calls;
   return fn;
 }
@@ -44,19 +53,26 @@ function makeOutput() {
 function makeSdk(requests: unknown): MockSdk {
   return {
     params: {
-      get: async (k: string) =>
-        k === "requests" ? JSON.stringify(requests) : null,
-      all: async () => ({}),
+      get: (k: string) =>
+        Promise.resolve(k === "requests" ? JSON.stringify(requests) : null),
+      all: () => Promise.resolve({}),
     },
     output: makeOutput(),
     kv: {
-      get: async () => undefined,
-      set: async () => {},
-      delete: async () => {},
-      list: async () => ({}),
+      get: () => Promise.resolve(undefined),
+      set: () => {
+        return Promise.resolve();
+      },
+      delete: () => {
+        return Promise.resolve();
+      },
+      list: () => Promise.resolve({}),
     },
     input: undefined,
-    mcp: { list_tools: async () => [], call: async () => ({}) },
+    mcp: {
+      list_tools: () => Promise.resolve([]),
+      call: () => Promise.resolve({}),
+    },
     dicode: {},
   };
 }

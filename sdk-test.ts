@@ -73,16 +73,21 @@ function freshDicode(): MockDicode {
   return {
     task_id: "test/task",
     run_id: "test-run",
-    run_task: async () => ({}),
-    list_tasks: async () => [],
-    get_runs: async () => [],
-    secrets_set: async () => {},
-    secrets_delete: async () => {},
+    run_task: () => Promise.resolve({}),
+    list_tasks: () => Promise.resolve([]),
+    get_runs: () => Promise.resolve([]),
+    secrets_set: () => {
+      return Promise.resolve();
+    },
+    secrets_delete: () => {
+      return Promise.resolve();
+    },
     // set_group records each call so tests can assert on the labels written.
     // Last write wins in production; the array preserves call ordering for
     // tests that need it.
-    set_group: async (label: string) => {
+    set_group: (label: string) => {
       groups.push(String(label ?? ""));
+      return Promise.resolve();
     },
     _setGroupCalls: groups,
     tasks: {
@@ -90,9 +95,9 @@ function freshDicode(): MockDicode {
       // that renamed one would let a task read the wrong key, pass its tests,
       // and fail against the daemon. Override dicode.tasks.test outright to
       // model a failing or erroring run.
-      test: async (taskID: string) => {
+      test: (taskID: string) => {
         testedTasks.push(String(taskID ?? ""));
-        return {
+        return Promise.resolve({
           taskID,
           runtime: "deno",
           passed: 0,
@@ -102,24 +107,26 @@ function freshDicode(): MockDicode {
           exitCode: 0,
           output: "",
           testFile: "",
-        };
+        });
       },
     },
     sources: {
       // Empty unless a test pushes onto dicode._sources.
-      list: async () => sources,
+      list: () => Promise.resolve(sources),
       // The daemon omits the path keys entirely when dev mode was disabled,
       // so the mock omits them too rather than returning empty strings a
       // caller might treat as a path.
-      set_dev_mode: async (name: string, opts: Record<string, unknown>) => {
+      set_dev_mode: (name: string, opts: Record<string, unknown>) => {
         devModeCalls.push({ name, ...opts });
-        return opts.enabled
-          ? {
-            ok: true,
-            dev_root_path: "/dev-clones/test/taskset.yaml",
-            clone_path: "/dev-clones/test",
-          }
-          : { ok: true };
+        return Promise.resolve(
+          opts.enabled
+            ? {
+              ok: true,
+              dev_root_path: "/dev-clones/test/taskset.yaml",
+              clone_path: "/dev-clones/test",
+            }
+            : { ok: true },
+        );
       },
     },
     _testTaskCalls: testedTasks,
@@ -182,12 +189,12 @@ const params: MockParams = {
     state.params.set(k, v);
   },
   // eslint-disable-next-line @typescript-eslint/require-await
-  async get(k) {
-    return state.params.get(k) ?? null;
+  get(k) {
+    return Promise.resolve(state.params.get(k) ?? null);
   },
   // eslint-disable-next-line @typescript-eslint/require-await
-  async all() {
-    return Object.fromEntries(state.params);
+  all() {
+    return Promise.resolve(Object.fromEntries(state.params));
   },
 };
 
@@ -202,20 +209,21 @@ const kv: MockKV = {
     state.kv.set(k, v);
   },
   // eslint-disable-next-line @typescript-eslint/require-await
-  async get(k) {
-    return state.kv.get(k);
+  get(k) {
+    return Promise.resolve(state.kv.get(k));
   },
   // eslint-disable-next-line @typescript-eslint/require-await
-  async delete(k) {
+  delete(k) {
     state.kv.delete(k);
+    return Promise.resolve();
   },
   // eslint-disable-next-line @typescript-eslint/require-await
-  async list(prefix = "") {
+  list(prefix = "") {
     const out: Record<string, unknown> = {};
     for (const [k, v] of state.kv) {
       if (k.startsWith(prefix)) out[k] = v;
     }
-    return out;
+    return Promise.resolve(out);
   },
 };
 
@@ -443,13 +451,26 @@ async function runTask(): Promise<any> {
     kv,
     input: liveInput ?? state.input,
     output: {
-      html: async () => {},
-      text: async () => {},
-      json: async () => {},
-      image: async () => {},
-      file: async () => {},
+      html: () => {
+        return Promise.resolve();
+      },
+      text: () => {
+        return Promise.resolve();
+      },
+      json: () => {
+        return Promise.resolve();
+      },
+      image: () => {
+        return Promise.resolve();
+      },
+      file: () => {
+        return Promise.resolve();
+      },
     },
-    mcp: { list_tools: async () => [], call: async () => ({}) },
+    mcp: {
+      list_tools: () => Promise.resolve([]),
+      call: () => Promise.resolve({}),
+    },
     dicode: state.dicode,
   };
   return (await taskMain(sdk)) as Record<string, unknown>;

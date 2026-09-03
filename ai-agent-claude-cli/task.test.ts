@@ -12,23 +12,50 @@ import main, {
   steps,
 } from "./task.ts";
 import { isValidSessionId } from "../ai-agent-core/chat.ts";
+import type { DicodeSdk, SuspendRequest } from "../sdk.ts";
 
-const fakeDicode = {} as any;
+// The SDK object main() takes, and the envelope a terminal failure
+// publishes before it throws.
+type MainArg = Parameters<typeof main>[0];
+type FailureEnvelope = { error: string; ok?: boolean; [k: string]: unknown };
+
+// What a turn resolves to. The task bare-returns { session_id, reply } on the
+// happy path and adds ok/error/model on the paths these tests exercise.
+// SuspendRequest types `state` as unknown — only the task knows its shape —
+// so name the part these tests read back.
+type RecordedSuspend = SuspendRequest & {
+  state: { claudeSessionId?: string; chatId?: string };
+  schema: {
+    properties: { message: { description?: string } };
+    required?: string[];
+    description?: string;
+  };
+};
+
+type TurnResult = {
+  session_id?: string;
+  reply?: string;
+  ok?: boolean;
+  error?: string;
+  model?: string;
+};
+
+const fakeDicode = {} as unknown as MainArg["dicode"];
 
 // A dicode stub whose suspend() records the request and throws a sentinel —
 // dicode.suspend never returns in production (the process exits), so tests must
 // stop execution the same way and inspect the recorded suspend calls.
 class SuspendSignal extends Error {}
 function makeSuspendDicode() {
-  const calls: any[] = [];
+  const calls: RecordedSuspend[] = [];
   return {
     calls,
     dicode: {
-      suspend: (req: any) => {
-        calls.push(req);
+      suspend: (req: SuspendRequest) => {
+        calls.push(req as unknown as RecordedSuspend);
         throw new SuspendSignal();
       },
-    } as any,
+    } as unknown as MainArg["dicode"],
   };
 }
 
@@ -56,24 +83,28 @@ function makeParams(entries: Array<[string, string]>) {
 
 // noopOutput stands in for the SDK's output surface on paths that never
 // publish. Failure paths do publish — use runFailing for those.
-const noopOutput = { json: () => Promise.resolve() } as any;
+const noopOutput = {
+  json: () => Promise.resolve(),
+} as unknown as MainArg["output"];
 
 // runFailing invokes a task entry expecting the terminal-failure path: a turn
 // that cannot run publishes the { ok: false, error } envelope a webhook caller
 // reads and then throws, which is what makes the engine record a failed run.
 // Returns the published envelope; asserts both halves happened and agree.
-async function runFailing(fn: (output: any) => Promise<unknown>): Promise<any> {
-  const published: any[] = [];
+async function runFailing(
+  fn: (output: MainArg["output"]) => Promise<unknown>,
+): Promise<FailureEnvelope> {
+  const published: FailureEnvelope[] = [];
   const output = {
     json: (v: unknown) => {
-      published.push(v);
+      published.push(v as FailureEnvelope);
       return Promise.resolve();
     },
   };
   let thrown: unknown;
   let returned = false;
   try {
-    await fn(output);
+    await fn(output as MainArg["output"]);
     returned = true;
   } catch (e) {
     thrown = e;
@@ -167,7 +198,7 @@ Deno.test("no prompt on a fresh run opens the chat loop (suspends to turn)", asy
 });
 
 Deno.test("no token: falls back to logged-in credentials (does not hard-fail)", async () => {
-  const result: any = await withStubClaude(
+  const result = await withStubClaude(
     `cat <<'JSON'
 {"type":"result","is_error":false,"result":"ok","session_id":"s"}
 JSON`,
@@ -178,7 +209,7 @@ JSON`,
         output: noopOutput,
       }),
     null,
-  );
+  ) as TurnResult;
   assertEquals(result.ok, true);
 });
 
@@ -279,7 +310,7 @@ JSON`,
 });
 
 Deno.test("happy path returns reply + session_id", async () => {
-  const result: any = await withStubClaude(
+  const result = await withStubClaude(
     `cat <<'JSON'
 {"type":"result","subtype":"success","is_error":false,"result":"hello world","session_id":"sess-abc123","model":"claude-sonnet-4","total_cost_usd":0.001}
 JSON`,
@@ -289,13 +320,13 @@ JSON`,
         dicode: fakeDicode,
         output: noopOutput,
       }),
-  );
+  ) as TurnResult;
   assertEquals(result.ok, true);
   assertEquals(result.reply, "hello world");
   assertEquals(result.model, "claude-sonnet-4");
   // One-shot is stateless: the returned session_id is a fresh UUID keying the
   // per-invocation workdir, not the Claude CLI's own id.
-  if (!isValidSessionId(result.session_id)) {
+  if (!isValidSessionId(result.session_id ?? "")) {
     throw new Error(
       `expected uuid-shaped session_id, got ${result.session_id}`,
     );
@@ -303,7 +334,7 @@ JSON`,
 });
 
 Deno.test("surfaces is_error: true responses", async () => {
-  const result: any = await withStubClaude(
+  const result = await withStubClaude(
     `cat <<'JSON'
 {"type":"result","is_error":true,"result":"rate limited"}
 JSON`,
@@ -315,7 +346,7 @@ JSON`,
           output,
         })
       ),
-  );
+  ) as TurnResult;
   assertEquals(result.ok, false);
   if (!String(result.error ?? "").includes("rate limited")) {
     throw new Error(`expected rate-limited error, got ${result.error}`);
@@ -323,7 +354,7 @@ JSON`,
 });
 
 Deno.test("surfaces non-zero exit code with stderr", async () => {
-  const result: any = await withStubClaude(
+  const result = await withStubClaude(
     `echo "auth failed: bad token" >&2
 exit 2`,
     () =>
@@ -334,7 +365,7 @@ exit 2`,
           output,
         })
       ),
-  );
+  ) as TurnResult;
   assertEquals(result.ok, false);
   if (!String(result.error ?? "").includes("auth failed")) {
     throw new Error(`expected stderr propagation, got ${result.error}`);
@@ -342,7 +373,7 @@ exit 2`,
 });
 
 Deno.test("redacts OAuth token if it leaks into stderr", async () => {
-  const result: any = await withStubClaude(
+  const result = await withStubClaude(
     `echo "diagnostic: token=supersecret-token-xyz failed" >&2
 exit 1`,
     () =>
@@ -354,7 +385,7 @@ exit 1`,
         })
       ),
     "supersecret-token-xyz",
-  );
+  ) as TurnResult;
   assertEquals(result.ok, false);
   if (String(result.error ?? "").includes("supersecret-token-xyz")) {
     throw new Error(`OAuth token leaked into error: ${result.error}`);
@@ -368,7 +399,7 @@ Deno.test("redacts every occurrence of the token, not just the first", async () 
   // Regression: String.replace only swaps the first match. If Claude
   // ever logs the OAuth token twice (or more), the trailing copies
   // would have leaked through. Use of replaceAll defends against that.
-  const result: any = await withStubClaude(
+  const result = await withStubClaude(
     `echo "first: supersecret-token-xyz; second: supersecret-token-xyz" >&2
 exit 1`,
     () =>
@@ -380,7 +411,7 @@ exit 1`,
         })
       ),
     "supersecret-token-xyz",
-  );
+  ) as TurnResult;
   assertEquals(result.ok, false);
   const err = String(result.error ?? "");
   if (err.includes("supersecret-token-xyz")) {
@@ -398,7 +429,7 @@ exit 1`,
 Deno.test("redacts token in an is_error response too", async () => {
   // The CLI reports auth failures through its own JSON envelope, not stderr —
   // a path that reaches the caller and the run log the same way.
-  const result: any = await withStubClaude(
+  const result = await withStubClaude(
     `cat <<'JSON'
 {"type":"result","is_error":true,"result":"auth failed for token supersecret-token-xyz"}
 JSON`,
@@ -411,7 +442,7 @@ JSON`,
         })
       ),
     "supersecret-token-xyz",
-  );
+  ) as TurnResult;
   assertEquals(result.ok, false);
   if (String(result.error ?? "").includes("supersecret-token-xyz")) {
     throw new Error(
@@ -424,7 +455,7 @@ JSON`,
 });
 
 Deno.test("redacts token in JSON-parse-failure path too", async () => {
-  const result: any = await withStubClaude(
+  const result = await withStubClaude(
     `echo "non-JSON output mentioning supersecret-token-xyz somehow"`,
     () =>
       runFailing((output) =>
@@ -435,7 +466,7 @@ Deno.test("redacts token in JSON-parse-failure path too", async () => {
         })
       ),
     "supersecret-token-xyz",
-  );
+  ) as TurnResult;
   assertEquals(result.ok, false);
   if (String(result.error ?? "").includes("supersecret-token-xyz")) {
     throw new Error(
@@ -451,7 +482,7 @@ Deno.test("writes .claude/mcp.json when DICODE_MCP_API_KEY is set", async () => 
   // sentinel writes to /tmp/<pwd-basename> which survives cleanup.
   const sentinelDir = await Deno.makeTempDir();
   const sentinel = `${sentinelDir}/cwd-recorded`;
-  const result: any = await withStubClaude(
+  const result = await withStubClaude(
     `cat "$PWD/.claude/mcp.json" > ${sentinel} 2>/dev/null || true
 cat <<'JSON'
 {"type":"result","is_error":false,"result":"ok","session_id":"s"}
@@ -462,7 +493,7 @@ JSON`,
         dicode: fakeDicode,
         output: noopOutput,
       }),
-  );
+  ) as TurnResult;
   assertEquals(result.ok, true);
   const recorded = await Deno.readTextFile(sentinel);
   const cfg = JSON.parse(recorded);
@@ -482,7 +513,7 @@ Deno.test("skips MCP wiring when DICODE_MCP_API_KEY is empty", async () => {
   Deno.env.delete("DICODE_MCP_API_KEY");
   const sentinelDir = await Deno.makeTempDir();
   const sentinel = `${sentinelDir}/mcp-exists`;
-  const result: any = await withStubClaude(
+  const result = await withStubClaude(
     `[ -f "$PWD/.claude/mcp.json" ] && echo "yes" > ${sentinel} || echo "no" > ${sentinel}
 cat <<'JSON'
 {"type":"result","is_error":false,"result":"ok","session_id":"s"}
@@ -493,7 +524,7 @@ JSON`,
         dicode: fakeDicode,
         output: noopOutput,
       }),
-  );
+  ) as TurnResult;
   assertEquals(result.ok, true);
   const recorded = (await Deno.readTextFile(sentinel)).trim();
   assertEquals(recorded, "no");
@@ -503,7 +534,7 @@ Deno.test("rejects path-traversal in skills param", async () => {
   const skillsDir = await Deno.makeTempDir();
   const sentinelDir = await Deno.makeTempDir();
   const sentinel = `${sentinelDir}/skills-listed`;
-  const result: any = await withStubClaude(
+  const result = await withStubClaude(
     `ls "$PWD/.claude/skills" > ${sentinel} 2>/dev/null || echo "(empty)" > ${sentinel}
 cat <<'JSON'
 {"type":"result","is_error":false,"result":"ok","session_id":"s"}
@@ -518,7 +549,7 @@ JSON`,
         dicode: fakeDicode,
         output: noopOutput,
       }),
-  );
+  ) as TurnResult;
   assertEquals(result.ok, true);
   const listed = (await Deno.readTextFile(sentinel)).trim();
   if (listed.includes("passwd")) {
@@ -629,7 +660,7 @@ Deno.test("passes --strict-mcp-config --mcp-config to claude when MCP is wired",
   Deno.env.set("DICODE_MCP_API_KEY", "dck_test_mcp_key");
   const sentinelDir = await Deno.makeTempDir();
   const sentinel = `${sentinelDir}/args-recorded`;
-  const result: any = await withStubClaude(
+  const result = await withStubClaude(
     `printf '%s\\n' "$@" > ${sentinel}
 cat <<'JSON'
 {"type":"result","is_error":false,"result":"ok","session_id":"s"}
@@ -640,7 +671,7 @@ JSON`,
         dicode: fakeDicode,
         output: noopOutput,
       }),
-  );
+  ) as TurnResult;
   assertEquals(result.ok, true);
   const recorded = await Deno.readTextFile(sentinel);
   if (!recorded.includes("--strict-mcp-config")) {
@@ -682,14 +713,14 @@ const VALID_PRIOR_SESSION_ID = "33333333-3333-3333-3333-333333333333";
 
 Deno.test("steps.turn: a blank message ends the chat (returns, no Claude call)", async () => {
   const { calls, dicode } = makeSuspendDicode();
-  const result: any = await steps.turn({
+  const result = await steps.turn({
     params: makeParams([]),
     input: { message: "   " },
     state: { claudeSessionId: VALID_PRIOR_SESSION_ID, chatId: "c1" },
     dicode,
-    output: {} as any,
-    mcp: {} as any,
-  } as any);
+    output: {} as unknown as DicodeSdk["output"],
+    mcp: {} as unknown as DicodeSdk["mcp"],
+  } as unknown as DicodeSdk) as TurnResult;
   assertEquals(result.ok, true);
   assertEquals(result.reply, "(chat ended)");
   assertEquals(result.session_id, VALID_PRIOR_SESSION_ID);
@@ -701,7 +732,7 @@ Deno.test("steps.turn: a blank message ending the chat rejects an invalid carrie
   // so it has its own resolveSessionId call — this guards that it's actually
   // wired up, not just the non-blank-message path covered above.
   const { calls, dicode } = makeSuspendDicode();
-  const result: any = await steps.turn({
+  const result = await steps.turn({
     params: makeParams([]),
     input: { message: "" },
     state: {
@@ -709,9 +740,9 @@ Deno.test("steps.turn: a blank message ending the chat rejects an invalid carrie
       chatId: VALID_CHAT_ID,
     },
     dicode,
-    output: {} as any,
-    mcp: {} as any,
-  } as any);
+    output: {} as unknown as DicodeSdk["output"],
+    mcp: {} as unknown as DicodeSdk["mcp"],
+  } as unknown as DicodeSdk) as TurnResult;
   assertEquals(result.ok, true);
   assertEquals(result.reply, "(chat ended)");
   assertEquals(result.session_id, "");
@@ -732,9 +763,9 @@ JSON`,
           input: { message: "ping" },
           state: { claudeSessionId: "", chatId: VALID_CHAT_ID },
           dicode,
-          output: {} as any,
-          mcp: {} as any,
-        } as any);
+          output: {} as unknown as DicodeSdk["output"],
+          mcp: {} as unknown as DicodeSdk["mcp"],
+        } as unknown as DicodeSdk);
       } catch (e) {
         if (e instanceof SuspendSignal) signalled = true;
         else throw e;
@@ -757,7 +788,7 @@ Deno.test("steps.turn: a failed turn throws instead of suspending onward", async
   // envelope verbatim, which would end the run — as a success — carrying
   // prose instead of a reply.
   const { calls, dicode } = makeSuspendDicode();
-  const envelope: any = await withStubClaude(
+  const envelope = await withStubClaude(
     `echo "auth failed: bad token" >&2
 exit 2`,
     () =>
@@ -768,10 +799,10 @@ exit 2`,
           state: { claudeSessionId: "", chatId: VALID_CHAT_ID },
           dicode,
           output,
-          mcp: {} as any,
-        } as any)
+          mcp: {} as unknown as DicodeSdk["mcp"],
+        } as unknown as DicodeSdk)
       ),
-  );
+  ) as FailureEnvelope;
   assertEquals(envelope.ok, false);
   if (!String(envelope.error ?? "").includes("auth failed")) {
     throw new Error(`expected stderr propagation, got ${envelope.error}`);
@@ -798,9 +829,9 @@ JSON`,
             chatId: VALID_CHAT_ID,
           },
           dicode,
-          output: {} as any,
-          mcp: {} as any,
-        } as any);
+          output: {} as unknown as DicodeSdk["output"],
+          mcp: {} as unknown as DicodeSdk["mcp"],
+        } as unknown as DicodeSdk);
       } catch (e) {
         if (!(e instanceof SuspendSignal)) throw e;
       }
@@ -837,9 +868,9 @@ JSON`,
             chatId: "../../../../tmp/dicode-chatid-escape",
           },
           dicode,
-          output: {} as any,
-          mcp: {} as any,
-        } as any);
+          output: {} as unknown as DicodeSdk["output"],
+          mcp: {} as unknown as DicodeSdk["mcp"],
+        } as unknown as DicodeSdk);
       } catch (e) {
         if (!(e instanceof SuspendSignal)) throw e;
       }
@@ -880,9 +911,9 @@ JSON`,
             chatId: VALID_CHAT_ID,
           },
           dicode,
-          output: {} as any,
-          mcp: {} as any,
-        } as any);
+          output: {} as unknown as DicodeSdk["output"],
+          mcp: {} as unknown as DicodeSdk["mcp"],
+        } as unknown as DicodeSdk);
       } catch (e) {
         if (!(e instanceof SuspendSignal)) throw e;
       }
@@ -926,9 +957,9 @@ JSON`,
             chatId: "not-a-uuid",
           },
           dicode,
-          output: {} as any,
-          mcp: {} as any,
-        } as any);
+          output: {} as unknown as DicodeSdk["output"],
+          mcp: {} as unknown as DicodeSdk["mcp"],
+        } as unknown as DicodeSdk);
       } catch (e) {
         if (!(e instanceof SuspendSignal)) throw e;
       }
@@ -958,7 +989,7 @@ Deno.test("installs a skill as .claude/skills/<name>/SKILL.md", async () => {
   await Deno.writeTextFile(`${skillsDir}/legit-skill.md`, SKILL_DOC);
   const sentinelDir = await Deno.makeTempDir();
   const sentinel = `${sentinelDir}/skill-doc`;
-  const result: any = await withStubClaude(
+  const result = await withStubClaude(
     `cat "$PWD/.claude/skills/legit-skill/SKILL.md" > ${sentinel} 2>/dev/null || echo "(missing)" > ${sentinel}
 cat <<'JSON'
 {"type":"result","is_error":false,"result":"ok","session_id":"s"}
@@ -973,7 +1004,7 @@ JSON`,
         dicode: fakeDicode,
         output: noopOutput,
       }),
-  );
+  ) as TurnResult;
   assertEquals(result.ok, true);
   assertEquals(await Deno.readTextFile(sentinel), SKILL_DOC);
 });
@@ -986,7 +1017,7 @@ Deno.test("drops a skill whose frontmatter name disagrees with its filename", as
   );
   const sentinelDir = await Deno.makeTempDir();
   const sentinel = `${sentinelDir}/skills-listed`;
-  const result: any = await withStubClaude(
+  const result = await withStubClaude(
     `ls "$PWD/.claude/skills" > ${sentinel} 2>/dev/null || echo "(empty)" > ${sentinel}
 cat <<'JSON'
 {"type":"result","is_error":false,"result":"ok","session_id":"s"}
@@ -1001,7 +1032,7 @@ JSON`,
         dicode: fakeDicode,
         output: noopOutput,
       }),
-  );
+  ) as TurnResult;
   assertEquals(result.ok, true);
   assertEquals((await Deno.readTextFile(sentinel)).trim(), "");
 });
@@ -1077,7 +1108,7 @@ Deno.test("counts a skill named twice once", async () => {
   const lines: string[] = [];
   const origLog = console.log;
   console.log = (...args: unknown[]) => void lines.push(args.join(" "));
-  let result: any;
+  let result: TurnResult;
   try {
     result = await withStubClaude(
       `cat <<'JSON'
@@ -1093,7 +1124,7 @@ JSON`,
           dicode: fakeDicode,
           output: noopOutput,
         }),
-    );
+    ) as TurnResult;
   } finally {
     console.log = origLog;
   }
@@ -1123,9 +1154,9 @@ Deno.test("a skill dropped from a later turn is uninstalled from the shared work
         input: { message: "hi" },
         state: { claudeSessionId: "", chatId },
         dicode,
-        output: {} as any,
-        mcp: {} as any,
-      } as any);
+        output: {} as unknown as DicodeSdk["output"],
+        mcp: {} as unknown as DicodeSdk["mcp"],
+      } as unknown as DicodeSdk);
     } catch (e) {
       if (!(e instanceof SuspendSignal)) throw e;
     }

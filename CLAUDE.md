@@ -19,11 +19,21 @@ Two things make edits here higher-stakes than an ordinary task repo:
 
 ```bash
 deno task test                  # every task.test.ts (in-memory mocks, no daemon)
+deno task lint                  # deno lint — CI gate
+deno task fmt                   # deno fmt — CI gates on `deno task fmt:check`
+deno task check                 # lint + fmt:check + test, what CI runs
 deno test --allow-all --config=deno.json './webui/task.test.ts'   # one file
 dicode deno relock .            # regenerate deno.lock after changing imports
 dicode deno relock --check .    # what CI asserts
 dicode task test buildin/<id>   # run a task's tests through a live daemon
 ```
+
+`deno fmt` skips three things on purpose (see `deno.json`): `*.yaml`, because
+task manifests are data the daemon parses under a strict validator and their
+prompt blocks are indentation-sensitive; `*.md`, because it is model prompt
+content or READMEs whose wide tables table-padding pushes past 240 columns; and
+five lit components whose nested html`` literals make the formatter oscillate
+until it bails.
 
 `deno check` is **not** a gate here: ~27 pre-existing errors come from tasks that rely on
 ambient runtime globals rather than importing their types. Use it to compare against a

@@ -13,6 +13,23 @@ permissions:
   contents: read
 
 jobs:
+  lint:
+    name: Lint and format
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - run: deno lint
+
+      - run: deno fmt --check
+
   test-tasks:
     name: Test tasks (Deno)
     runs-on: ubuntu-latest
@@ -107,15 +124,28 @@ jobs:
           deno run --allow-read --allow-net scripts/assert-taskset.ts \
             http://127.0.0.1:18765
 
-          DICODE_DATA_DIR="$DICODE_DATA_DIR" ./dicode task test buildin/webui \
-            --format=junit > "$RUNNER_TEMP/buildin-webui.xml"
+          # One run per task directory that ships a task.test.ts. template/
+          # and write-local/ are pipeline stages with no taskset entry, so they
+          # are only reachable from the deno test job above.
+          failed=0
+          for id in $(deno run --allow-read scripts/tasks-with-tests.ts); do
+            echo "::group::dicode task test $id"
+            name=$(echo "$id" | tr '/' '-')
+            if ! DICODE_DATA_DIR="$DICODE_DATA_DIR" ./dicode task test "$id" \
+              --format=junit > "$RUNNER_TEMP/$name.xml"; then
+              echo "::error::$id failed"
+              failed=1
+            fi
+            echo "::endgroup::"
+          done
+          exit "$failed"
 
       - name: Upload JUnit results
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: task-test-results
-          path: ${{ runner.temp }}/buildin-webui.xml
+          path: ${{ runner.temp }}/*.xml
           retention-days: 7
           if-no-files-found: warn
 

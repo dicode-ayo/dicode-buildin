@@ -291,14 +291,16 @@ async function handle(
   }
 }
 
-export default async function main({ input, dicode }: DicodeSdk) {
+export default function main({ input, dicode }: DicodeSdk) {
   // GET requests don't reach here — the wrapping /mcp URL handler answers
   // those with a small server-info JSON. For POST requests, `input` is
   // the parsed JSON body; missing/invalid bodies surface as a JSON-RPC
   // parse error so the MCP client sees a well-formed envelope rather
   // than a dicode-shaped 500.
   if (!input || typeof input !== "object") {
-    return fail(null, -32700, "parse error: empty or non-object body");
+    return Promise.resolve(
+      fail(null, -32700, "parse error: empty or non-object body"),
+    );
   }
-  return handle(input as JsonRpcRequest, dicode);
+  return Promise.resolve(handle(input as JsonRpcRequest, dicode));
 }

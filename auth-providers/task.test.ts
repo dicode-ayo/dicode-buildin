@@ -41,7 +41,7 @@ function mockBrokerProviders(providers: unknown = BROKER_PROVIDERS): void {
 // withSecretsHas attaches a stub `dicode.secrets.has` returning `present` for
 // every call. Tests that need per-key behaviour replace it directly.
 function withSecretsHas(present: boolean): void {
-  dicode.secrets = { has: async () => present };
+  dicode.secrets = { has: () => Promise.resolve(present) };
 }
 
 test("list with broker returns the broker catalogue + openrouter standalone", async () => {
@@ -72,26 +72,27 @@ test("list without broker returns only standalones (BYO without relay)", async (
 
 test("list auto-discovers _oauth-app inheritors via the template marker", async () => {
   // No broker; one inheritor task registered.
-  dicode.list_tasks = async () => [
-    {
-      id: "auth/looker-oauth",
-      name: "Looker OAuth",
-      template: "dicode.io/oauth-app",
-      webhook: "/hooks/looker-oauth",
-      enabled: true,
-      params: [
-        { name: "provider", default: "looker" },
-        { name: "color", default: "#4285F4" },
-        { name: "client_secret_env", default: "CLIENT_SECRET" },
-      ],
-    },
-    {
-      // Sibling task without the template marker — must be ignored.
-      id: "buildin/something-else",
-      name: "Something Else",
-      enabled: true,
-    },
-  ];
+  dicode.list_tasks = () =>
+    Promise.resolve([
+      {
+        id: "auth/looker-oauth",
+        name: "Looker OAuth",
+        template: "dicode.io/oauth-app",
+        webhook: "/hooks/looker-oauth",
+        enabled: true,
+        params: [
+          { name: "provider", default: "looker" },
+          { name: "color", default: "#4285F4" },
+          { name: "client_secret_env", default: "CLIENT_SECRET" },
+        ],
+      },
+      {
+        // Sibling task without the template marker — must be ignored.
+        id: "buildin/something-else",
+        name: "Something Else",
+        enabled: true,
+      },
+    ]);
   withSecretsHas(false);
 
   const result = await runTask() as Array<Record<string, unknown>>;
@@ -109,14 +110,15 @@ test("list auto-discovers _oauth-app inheritors via the template marker", async 
 });
 
 test("list inheritor with no provider param is skipped", async () => {
-  dicode.list_tasks = async () => [{
-    id: "auth/broken-oauth",
-    name: "Broken OAuth",
-    template: "dicode.io/oauth-app",
-    webhook: "/hooks/broken-oauth",
-    enabled: true,
-    params: [], // no `provider` default — misconfigured BYO entry
-  }];
+  dicode.list_tasks = () =>
+    Promise.resolve([{
+      id: "auth/broken-oauth",
+      name: "Broken OAuth",
+      template: "dicode.io/oauth-app",
+      webhook: "/hooks/broken-oauth",
+      enabled: true,
+      params: [], // no `provider` default — misconfigured BYO entry
+    }]);
   withSecretsHas(false);
 
   const result = await runTask() as Array<Record<string, unknown>>;
@@ -129,14 +131,15 @@ test("list inheritor with no provider param is skipped", async () => {
 test("list dedup: broker wins over inheritor with the same key", async () => {
   // Operator's BYO entry keyed `github` must NOT shadow the broker's github.
   mockBrokerProviders();
-  dicode.list_tasks = async () => [{
-    id: "my-stuff/github-oauth",
-    name: "My BYO GitHub",
-    template: "dicode.io/oauth-app",
-    webhook: "/hooks/my-github-oauth",
-    enabled: true,
-    params: [{ name: "provider", default: "github" }],
-  }];
+  dicode.list_tasks = () =>
+    Promise.resolve([{
+      id: "my-stuff/github-oauth",
+      name: "My BYO GitHub",
+      template: "dicode.io/oauth-app",
+      webhook: "/hooks/my-github-oauth",
+      enabled: true,
+      params: [{ name: "provider", default: "github" }],
+    }]);
   withSecretsHas(false);
 
   const result = await runTask() as Array<Record<string, unknown>>;
@@ -171,7 +174,7 @@ test("list reports has_token=true when secrets.has returns true for a key", asyn
   ]);
   // Only GITHUB_ACCESS_TOKEN is "stored".
   dicode.secrets = {
-    has: async (key: string) => key === "GITHUB_ACCESS_TOKEN",
+    has: (key: string) => Promise.resolve(key === "GITHUB_ACCESS_TOKEN"),
   };
 
   const result = await runTask() as Array<Record<string, unknown>>;
@@ -187,9 +190,9 @@ test("connect for openrouter (standalone) returns the webhook URL without run_ta
   env.set("DICODE_BASE_URL", "http://localhost:8080");
 
   let runTaskCalls = 0;
-  dicode.run_task = async () => {
+  dicode.run_task = () => {
     runTaskCalls += 1;
-    return {};
+    return Promise.resolve({});
   };
 
   const result = await runTask() as Record<string, unknown>;
@@ -202,19 +205,20 @@ test("connect for openrouter (standalone) returns the webhook URL without run_ta
 test("connect for an _oauth-app inheritor returns the inherited webhook URL", async () => {
   globalThis.input = { action: "connect", provider: "looker" };
   env.set("DICODE_BASE_URL", "http://localhost:8080");
-  dicode.list_tasks = async () => [{
-    id: "auth/looker-oauth",
-    name: "Looker OAuth",
-    template: "dicode.io/oauth-app",
-    webhook: "/hooks/looker-oauth",
-    enabled: true,
-    params: [{ name: "provider", default: "looker" }],
-  }];
+  dicode.list_tasks = () =>
+    Promise.resolve([{
+      id: "auth/looker-oauth",
+      name: "Looker OAuth",
+      template: "dicode.io/oauth-app",
+      webhook: "/hooks/looker-oauth",
+      enabled: true,
+      params: [{ name: "provider", default: "looker" }],
+    }]);
 
   let runTaskCalls = 0;
-  dicode.run_task = async () => {
+  dicode.run_task = () => {
     runTaskCalls += 1;
-    return {};
+    return Promise.resolve({});
   };
 
   const result = await runTask() as Record<string, unknown>;
@@ -230,14 +234,14 @@ test("connect for a broker provider with relay enabled delegates to auth-start",
 
   const runTaskCalls: Array<{ id: string; params?: Record<string, string> }> =
     [];
-  dicode.run_task = async (id: string, p?: Record<string, string>) => {
+  dicode.run_task = (id: string, p?: Record<string, string>) => {
     runTaskCalls.push({ id, params: p });
-    return {
+    return Promise.resolve({
       returnValue: {
         url: "https://relay.example/auth/github?...",
         session_id: "sess-1",
       },
-    };
+    });
   };
 
   const result = await runTask() as Record<string, unknown>;
@@ -260,7 +264,7 @@ test("connect for a non-standalone, non-inheritor provider when relay is off thr
 test("connect when auth-start returns no url throws", async () => {
   globalThis.input = { action: "connect", provider: "github" };
   env.set("DICODE_RELAY_BROKER_URL", BROKER_URL);
-  dicode.run_task = async () => ({ returnValue: {} });
+  dicode.run_task = () => Promise.resolve({ returnValue: {} });
 
   await assert.throws(() => runTask(), /did not return a url/);
 });

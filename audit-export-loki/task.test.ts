@@ -44,10 +44,13 @@ test("ships a batch and advances the cursor on 2xx", async () => {
   let queriedAfter: string | undefined;
   let queriedOrder: string | undefined;
   setAuditMock({
-    query: async (opts) => {
+    query: (opts) => {
       queriedAfter = opts.after;
       queriedOrder = opts.order;
-      return { events: [evt("e1"), evt("e2")], next_cursor: "CURSOR-2" };
+      return Promise.resolve({
+        events: [evt("e1"), evt("e2")],
+        next_cursor: "CURSOR-2",
+      });
     },
   });
   http.mock("POST", `${ENDPOINT}/loki/api/v1/push`, { status: 200 });
@@ -73,9 +76,9 @@ test("ships a batch and advances the cursor on 2xx", async () => {
 test("resumes from the persisted cursor", async () => {
   let queriedAfter: string | undefined;
   setAuditMock({
-    query: async (opts) => {
+    query: (opts) => {
       queriedAfter = opts.after;
-      return { events: [evt("e9")], next_cursor: "CURSOR-9" };
+      return Promise.resolve({ events: [evt("e9")], next_cursor: "CURSOR-9" });
     },
   });
   http.mock("POST", `${ENDPOINT}/loki/api/v1/push`, { status: 200 });
@@ -90,7 +93,7 @@ test("resumes from the persisted cursor", async () => {
 
 test("no-op when there are no new events", async () => {
   setAuditMock({
-    query: async () => ({ events: [], next_cursor: "" }),
+    query: () => Promise.resolve({ events: [], next_cursor: "" }),
   });
   params.set("endpoint", ENDPOINT);
   kv.set("cursor", "CURSOR-KEEP");
@@ -109,7 +112,8 @@ test("no-op when there are no new events", async () => {
 
 test("does NOT advance the cursor when Loki returns non-2xx", async () => {
   setAuditMock({
-    query: async () => ({ events: [evt("e1")], next_cursor: "CURSOR-NEW" }),
+    query: () =>
+      Promise.resolve({ events: [evt("e1")], next_cursor: "CURSOR-NEW" }),
   });
   http.mock("POST", `${ENDPOINT}/loki/api/v1/push`, {
     status: 503,
@@ -132,14 +136,15 @@ test("does NOT advance the cursor when Loki returns non-2xx", async () => {
 
 test("groups events into streams by low-cardinality labels", async () => {
   setAuditMock({
-    query: async () => ({
-      events: [
-        evt("a", { event_type: "denied", allowed: false }),
-        evt("b", { event_type: "denied", allowed: false }),
-        evt("c", { event_type: "task_called", allowed: true }),
-      ],
-      next_cursor: "CURSOR-Z",
-    }),
+    query: () =>
+      Promise.resolve({
+        events: [
+          evt("a", { event_type: "denied", allowed: false }),
+          evt("b", { event_type: "denied", allowed: false }),
+          evt("c", { event_type: "task_called", allowed: true }),
+        ],
+        next_cursor: "CURSOR-Z",
+      }),
   });
   http.mock("POST", `${ENDPOINT}/loki/api/v1/push`, { status: 200 });
 
@@ -164,7 +169,7 @@ test("groups events into streams by low-cardinality labels", async () => {
 
 test("sends Bearer auth when no auth_user is set", async () => {
   setAuditMock({
-    query: async () => ({ events: [evt("e1")], next_cursor: "C1" }),
+    query: () => Promise.resolve({ events: [evt("e1")], next_cursor: "C1" }),
   });
   let seenAuth = "";
   // Capture the header via a custom fetch wrapper since the harness mock
@@ -187,7 +192,7 @@ test("sends Bearer auth when no auth_user is set", async () => {
 
 test("sends Basic auth when auth_user is set", async () => {
   setAuditMock({
-    query: async () => ({ events: [evt("e1")], next_cursor: "C1" }),
+    query: () => Promise.resolve({ events: [evt("e1")], next_cursor: "C1" }),
   });
   let seenAuth = "";
   const origFetch = globalThis.fetch;
@@ -208,7 +213,9 @@ test("sends Basic auth when auth_user is set", async () => {
 });
 
 test("fails when endpoint param is missing", async () => {
-  setAuditMock({ query: async () => ({ events: [], next_cursor: "" }) });
+  setAuditMock({
+    query: () => Promise.resolve({ events: [], next_cursor: "" }),
+  });
   // endpoint not set
   const res = await runTask() as { ok: boolean; error: string };
   assert.equal(res.ok, false);

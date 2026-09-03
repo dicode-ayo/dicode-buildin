@@ -25,10 +25,10 @@ test("removes expired rows", async () => {
   ];
   const deleted: string[] = [];
   setRunsMock({
-    list_expired: async () => expired,
-    delete_input: async (runID: string) => {
+    list_expired: () => Promise.resolve(expired),
+    delete_input: (runID: string) => {
       deleted.push(runID);
-      return { ok: true };
+      return Promise.resolve({ ok: true });
     },
   });
 
@@ -50,8 +50,8 @@ test("removes expired rows", async () => {
 
 test("returns ok with 0 when nothing to clean", async () => {
   setRunsMock({
-    list_expired: async () => [],
-    delete_input: async () => ({ ok: true }),
+    list_expired: () => Promise.resolve([]),
+    delete_input: () => Promise.resolve({ ok: true }),
   });
 
   params.set("retention_seconds", "2592000");
@@ -69,8 +69,8 @@ test("returns ok with 0 when nothing to clean", async () => {
 
 test("returns ok with 0 when list_expired returns null", async () => {
   setRunsMock({
-    list_expired: async () => null,
-    delete_input: async () => ({ ok: true }),
+    list_expired: () => Promise.resolve(null),
+    delete_input: () => Promise.resolve({ ok: true }),
   });
 
   params.set("retention_seconds", "2592000");
@@ -88,13 +88,14 @@ test("returns ok with 0 when list_expired returns null", async () => {
 
 test("counts errors when delete_input throws", async () => {
   setRunsMock({
-    list_expired: async () => [
-      { runID: "good", storageKey: "run-inputs/good", storedAt: 100 },
-      { runID: "bad", storageKey: "run-inputs/bad", storedAt: 100 },
-    ],
-    delete_input: async (runID: string) => {
+    list_expired: () =>
+      Promise.resolve([
+        { runID: "good", storageKey: "run-inputs/good", storedAt: 100 },
+        { runID: "bad", storageKey: "run-inputs/bad", storedAt: 100 },
+      ]),
+    delete_input: (runID: string) => {
       if (runID === "bad") throw new Error("storage backend down");
-      return { ok: true };
+      return Promise.resolve({ ok: true });
     },
   });
 
@@ -113,8 +114,8 @@ test("counts errors when delete_input throws", async () => {
 
 test("rejects invalid retention_seconds (non-numeric)", async () => {
   setRunsMock({
-    list_expired: async () => [],
-    delete_input: async () => ({ ok: true }),
+    list_expired: () => Promise.resolve([]),
+    delete_input: () => Promise.resolve({ ok: true }),
   });
 
   params.set("retention_seconds", "not-a-number");
@@ -128,8 +129,8 @@ test("rejects invalid retention_seconds (non-numeric)", async () => {
 
 test("rejects zero retention_seconds", async () => {
   setRunsMock({
-    list_expired: async () => [],
-    delete_input: async () => ({ ok: true }),
+    list_expired: () => Promise.resolve([]),
+    delete_input: () => Promise.resolve({ ok: true }),
   });
 
   params.set("retention_seconds", "0");
@@ -143,8 +144,8 @@ test("rejects zero retention_seconds", async () => {
 
 test("rejects negative retention_seconds", async () => {
   setRunsMock({
-    list_expired: async () => [],
-    delete_input: async () => ({ ok: true }),
+    list_expired: () => Promise.resolve([]),
+    delete_input: () => Promise.resolve({ ok: true }),
   });
 
   params.set("retention_seconds", "-3600");
@@ -162,11 +163,11 @@ test("uses default retention_seconds from task.yaml when param not set", async (
   // no error path is taken and removed/errors are zero (empty list).
   let capturedBeforeTs: number | undefined;
   setRunsMock({
-    list_expired: async ({ before_ts }: { before_ts: number }) => {
+    list_expired: ({ before_ts }: { before_ts: number }) => {
       capturedBeforeTs = before_ts;
-      return [];
+      return Promise.resolve([]);
     },
-    delete_input: async () => ({ ok: true }),
+    delete_input: () => Promise.resolve({ ok: true }),
   });
 
   const res = await runTask() as {
@@ -191,15 +192,16 @@ test("continues deleting remaining rows after a failure", async () => {
   // Verifies the error accumulation loop doesn't short-circuit on failure.
   const deleted: string[] = [];
   setRunsMock({
-    list_expired: async () => [
-      { runID: "a", storageKey: "run-inputs/a", storedAt: 100 },
-      { runID: "b", storageKey: "run-inputs/b", storedAt: 100 },
-      { runID: "c", storageKey: "run-inputs/c", storedAt: 100 },
-    ],
-    delete_input: async (runID: string) => {
+    list_expired: () =>
+      Promise.resolve([
+        { runID: "a", storageKey: "run-inputs/a", storedAt: 100 },
+        { runID: "b", storageKey: "run-inputs/b", storedAt: 100 },
+        { runID: "c", storageKey: "run-inputs/c", storedAt: 100 },
+      ]),
+    delete_input: (runID: string) => {
       if (runID === "b") throw new Error("transient error");
       deleted.push(runID);
-      return { ok: true };
+      return Promise.resolve({ ok: true });
     },
   });
 
@@ -223,11 +225,12 @@ test("stops at the budget and reports the rest as remaining", async () => {
   // A partial sweep is a success — reporting failure for work that partly
   // landed is the behaviour budget_seconds exists to remove.
   setRunsMock({
-    list_expired: async () => [
-      { runID: "a", storageKey: "run-inputs/a", storedAt: 100 },
-      { runID: "b", storageKey: "run-inputs/b", storedAt: 100 },
-      { runID: "c", storageKey: "run-inputs/c", storedAt: 100 },
-    ],
+    list_expired: () =>
+      Promise.resolve([
+        { runID: "a", storageKey: "run-inputs/a", storedAt: 100 },
+        { runID: "b", storageKey: "run-inputs/b", storedAt: 100 },
+        { runID: "c", storageKey: "run-inputs/c", storedAt: 100 },
+      ]),
     delete_input: async () => {
       await new Promise((resolve) => setTimeout(resolve, 25));
       return { ok: true };

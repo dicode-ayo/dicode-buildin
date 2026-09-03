@@ -67,6 +67,8 @@ Then:
 
 ```bash
 deno task test                       # all task.test.ts, in-memory mocks, no daemon
+deno task check                      # lint + format check + tests, what CI runs
+deno task fmt                        # apply formatting
 dicode deno relock .                 # regenerate deno.lock after changing imports
 dicode deno relock --check .         # what CI asserts
 dicode task test buildin/webui       # run one task's tests through the daemon
@@ -78,8 +80,9 @@ dicode-core implements in `pkg/runtime/deno/sdk/` — if they drift, dicode-core
 
 ## CI
 
-Two jobs, in `.github/workflows/ci.yml`:
+Three jobs, in `.github/workflows/ci.yml`:
 
+- **Lint and format** — `deno lint` and `deno fmt --check`.
 - **Test tasks (Deno)** — `deno test` over every `task.test.ts`.
 - **Load and test via the dicode daemon** — downloads the latest dicode release, checks
   `deno.lock` is current, boots a daemon against this repo, and asserts that every

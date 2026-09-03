@@ -4,15 +4,15 @@ import { get } from "./api.js";
 let _cfg = null;
 let _pending = null;
 
-export async function getConfig() {
-  if (_cfg) return _cfg;
-  if (_pending) return _pending;
+export function getConfig() {
+  if (_cfg) return Promise.resolve(_cfg);
+  if (_pending) return Promise.resolve(_pending);
   _pending = get("/api/config").then((c) => {
     _cfg = c;
     _pending = null;
     return c;
   });
-  return _pending;
+  return Promise.resolve(_pending);
 }
 
 export function invalidateConfig() {

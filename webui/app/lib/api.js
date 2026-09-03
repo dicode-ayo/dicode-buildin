@@ -28,19 +28,19 @@ export async function api(method, path, body) {
   return _parse(res);
 }
 
-async function _fetch(method, path, body) {
+function _fetch(method, path, body) {
   const opts = { method, headers: {} };
   if (body !== undefined) {
     opts.headers["Content-Type"] = "application/json";
     opts.body = JSON.stringify(body);
   }
-  return fetch(path, opts);
+  return Promise.resolve(fetch(path, opts));
 }
 
-async function _parse(res) {
+function _parse(res) {
   const ct = res.headers.get("Content-Type") || "";
-  if (ct.includes("application/json")) return res.json();
-  return res.text();
+  if (ct.includes("application/json")) return Promise.resolve(res.json());
+  return Promise.resolve(res.text());
 }
 
 async function _tryRefresh() {
