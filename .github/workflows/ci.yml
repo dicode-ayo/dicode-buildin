@@ -71,7 +71,7 @@ jobs:
           database:
             path: \${DATADIR}/data.db
             type: sqlite
-          log_level: warn
+          log_level: info
           server:
             port: 18765
             auth: false
@@ -92,8 +92,8 @@ jobs:
           DAEMON_PID=$!
           trap "kill $DAEMON_PID 2>/dev/null || true" EXIT
 
-          # Poll the IPC socket, not HTTP — the CLI talks over IPC and that
-          # path has to be up before `dicode list` or `dicode task test`.
+          # Poll the IPC socket: `dicode task test` talks over IPC, and the
+          # HTTP registry the assertion reads comes up alongside it.
           for i in $(seq 1 60); do
             test -S "$DICODE_DATA_DIR/daemon.sock" && break
             if [ "$i" -eq 60 ]; then
@@ -104,30 +104,8 @@ jobs:
             sleep 0.5
           done
 
-          # A task.yaml the validator rejects never registers, so comparing the
-          # registered count against the manifest catches a bad spec that a
-          # unit test would not.
-          want=$(deno eval --quiet '
-            import { parse } from "jsr:@std/yaml@1";
-            const ts = parse(await Deno.readTextFile("taskset.yaml"));
-            console.log(Object.keys(ts.spec.entries).length);
-          ')
-
-          # Poll rather than sample once: a kind: PipelineTask entry retries
-          # until every stage task it names has registered, so it lands after
-          # the plain tasks do.
-          for i in $(seq 1 60); do
-            got=$(DICODE_DATA_DIR="$DICODE_DATA_DIR" ./dicode list | grep -c '^buildin/' || true)
-            [ "$want" = "$got" ] && break
-            sleep 0.5
-          done
-          echo "taskset entries: $want, registered: $got"
-          if [ "$want" != "$got" ]; then
-            echo "::error::$((want - got)) taskset entries failed to register within 30 s"
-            DICODE_DATA_DIR="$DICODE_DATA_DIR" ./dicode list
-            cat "$DICODE_DATA_DIR/daemon.log"
-            exit 1
-          fi
+          deno run --allow-read --allow-net scripts/assert-registered.ts \
+            http://127.0.0.1:18765
 
           DICODE_DATA_DIR="$DICODE_DATA_DIR" ./dicode task test buildin/webui \
             --format=junit > "$RUNNER_TEMP/buildin-webui.xml"
