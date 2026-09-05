@@ -363,12 +363,21 @@ class DcRunDetail extends LitElement {
     const taskID = run.TaskID || run.task_id;
     const status = this._status || run.status || run.Status;
     const isRunning = status === "running";
+    // A run that reached a terminal status with no log lines has none coming:
+    // an empty <pre> reads as a broken viewer, so say so instead.
+    const isTerminal = status === "success" || status === "failure" ||
+      status === "cancelled";
     const startedAt = run.started_at || run.StartedAt;
     const finishedAt = run.finished_at || run.FinishedAt;
     const trigSrc = run.trigger_source || run.TriggerSource;
     const otype = run.output_content_type || run.OutputContentType;
     const ocontent = run.output_content || run.OutputContent;
     const retval = run.return_value || run.ReturnValue;
+    // A run that fails preflight (missing required param, unresolvable secret
+    // provider) never starts a process, so it has no logs and no output — the
+    // categorized reason on the run record is the only account of what
+    // happened. Pipeline failures carry one too.
+    const failureReason = run.failure_reason || run.FailureReason;
 
     let displayRV = retval;
     if (retval) {
@@ -452,7 +461,14 @@ class DcRunDetail extends LitElement {
         </div>
       </div>
 
-      ${status === "suspended"
+      ${failureReason
+        ? html`
+          <div class="card" style="border-left:3px solid var(--dicode-red)">
+            <div class="meta">Failure reason</div>
+            <code>${failureReason}</code>
+          </div>
+        `
+        : ""} ${status === "suspended"
         ? this._renderResumeForm()
         : ""} ${children.length
         ? html`
@@ -518,14 +534,21 @@ class DcRunDetail extends LitElement {
         : ""}
 
       <h2>Logs</h2>
-      <pre id="log-output" style="max-height:600px;overflow-y:auto">${this._logs
-        .map((l) =>
-          html`
-            <span>[${l.level}] ${l.time} ${unsafeHTML(
-              ansiToHtml(l.message),
-            )}\n</span>
-          `
-        )}</pre>
+      ${this._logs.length === 0 && isTerminal
+        ? html`
+          <div class="card meta">No log output was recorded for this run.</div>
+        `
+        : html`
+          <pre id="log-output" style="max-height:600px;overflow-y:auto">${this
+            ._logs
+            .map((l) =>
+              html`
+                <span>[${l.level}] ${l.time} ${unsafeHTML(
+                  ansiToHtml(l.message),
+                )}\n</span>
+              `
+            )}</pre>
+        `}
     `;
   }
 }
