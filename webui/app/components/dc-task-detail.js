@@ -1,7 +1,7 @@
 import { LitElement, html } from 'https://esm.sh/lit@3';
 import { unsafeHTML } from 'https://esm.sh/lit@3/directives/unsafe-html.js';
 import { marked } from 'https://esm.sh/marked@14';
-import { get, post } from '../lib/api.js';
+import { get, patch, post } from '../lib/api.js';
 import { wsOn } from '../lib/ws.js';
 import { navigate } from '../lib/router.js';
 import { fmtTime, fmtDuration } from '../lib/utils.js';
@@ -34,6 +34,13 @@ class DcTaskDetail extends LitElement {
     _state:           { state: true }, // last-fetched GET /pending-state body, or null
     _stateError:      { state: true },
     _stateLoading:    { state: true },
+    _paramEdits:      { state: true }, // name → value, only for fields the operator touched
+    _paramStatus:     { state: true },
+    _paramSaving:     { state: true },
+    _runOpen:         { state: true }, // fire-time param form is up
+    _runParams:       { state: true }, // name → value for the next manual run
+    _runErrors:       { state: true }, // name → message, from a 422 on fire
+    _toggling:        { state: true },
   };
 
   constructor() {
@@ -46,6 +53,9 @@ class DcTaskDetail extends LitElement {
     this._expanded = new Set();
     this._children = new Map();
     this._stateOpen = false; this._state = null; this._stateError = ''; this._stateLoading = false;
+    this._paramEdits = {}; this._paramStatus = ''; this._paramSaving = false;
+    this._runOpen = false; this._runParams = {}; this._runErrors = {};
+    this._toggling = false;
     this._editor = null;
     this._relayBase = '';
     this._offStarted = null; this._offFinished = null;
@@ -84,6 +94,8 @@ class DcTaskDetail extends LitElement {
     this._task = null; this._runs = null; this._error = null;
     this._editorOpen = false; this._triggerOpen = false;
     this._stateOpen = false; this._state = null; this._stateError = ''; this._stateLoading = false;
+    this._paramEdits = {}; this._paramStatus = '';
+    this._runOpen = false; this._runParams = {}; this._runErrors = {};
     try {
       const [task, runs, base] = await Promise.all([
         get(`/api/tasks/${encodeURIComponent(this.taskid)}`),
@@ -126,11 +138,104 @@ class DcTaskDetail extends LitElement {
     });
   }
 
+  // A task that declares params opens the fire-time form rather than firing
+  // blind: a required param with no default would only produce a run that
+  // fails preflight, and even where every param has a default the operator
+  // cannot otherwise see what this run is about to use.
   async _run() {
+    if (this._declaredParams().length && !this._runOpen) {
+      this._runParams = Object.fromEntries(
+        this._declaredParams().map(p => [p.name, p.default || '']));
+      this._runErrors = {};
+      this._runOpen = true;
+      return;
+    }
+    await this._fire(this._runOpen ? this._runParams : undefined);
+  }
+
+  async _fire(params) {
     try {
-      const r = await post(`/api/tasks/${encodeURIComponent(this.taskid)}/run`);
+      const r = await post(`/api/tasks/${encodeURIComponent(this.taskid)}/run`,
+        params ? { params } : undefined);
       navigate(`/runs/${r.runId}`);
-    } catch(e) { alert('Failed: ' + e.message); }
+    } catch(e) {
+      // 422 carries per-field detail — show it against the inputs instead of
+      // an alert the operator has to dismiss before they can fix anything.
+      if (e.status === 422 && e.body?.fields) {
+        this._runErrors = Object.fromEntries(e.body.fields.map(f => [f.field, f.message]));
+        return;
+      }
+      alert('Failed: ' + e.message);
+    }
+  }
+
+  _declaredParams() { return this._task?.params || []; }
+
+  // The value the daemon would use today. An override in dicode.yaml has
+  // already been folded into the spec by the time it reaches the browser, so
+  // the declared default is the effective value — there is nothing else to
+  // consult, and nothing that distinguishes an overridden value from an
+  // authored one.
+  _paramValue(p) {
+    const edited = this._paramEdits[p.name];
+    return edited !== undefined ? edited : (p.default || '');
+  }
+
+  async _saveParams() {
+    const params = {};
+    for (const p of this._declaredParams()) {
+      const edited = this._paramEdits[p.name];
+      // Writing an override that matches the value already in force would
+      // pin it: the task could never move its own default again.
+      if (edited === undefined || edited === (p.default || '')) continue;
+      params[p.name] = edited;
+    }
+    if (!Object.keys(params).length) {
+      this._paramStatus = 'Nothing changed.';
+      return;
+    }
+    await this._patchParams(params, 'Saved');
+  }
+
+  // null deletes the key under RFC 7396 merge-patch semantics, which is what
+  // "give me the task's own value back" means here. Deleting an override that
+  // was never there is a no-op, so this is offered on every row.
+  async _resetParam(name) {
+    await this._patchParams({ [name]: null }, `Cleared the override on ${name}`);
+  }
+
+  // The patch lands in dicode.yaml at once, but the registry keeps serving the
+  // old spec until the source next syncs — so the field on screen goes on
+  // showing the previous value for up to a poll interval.
+  async _patchParams(params, okMsg) {
+    this._paramSaving = true;
+    this._paramStatus = '';
+    try {
+      await patch(`/api/tasks/${encodeURIComponent(this.taskid)}/overrides`, { params });
+      this._paramEdits = {};
+      this._paramStatus = `${okMsg} — applies on the next source sync.`;
+    } catch(e) {
+      this._paramStatus = e.status === 409
+        ? 'dicode.yaml changed on disk — reload the page and try again.'
+        : `Save failed: ${e.message}`;
+    } finally {
+      this._paramSaving = false;
+    }
+  }
+
+  async _toggleEnabled() {
+    const next = this._task.enabled === false;
+    this._toggling = true;
+    try {
+      await patch(`/api/tasks/${encodeURIComponent(this.taskid)}/overrides`, { enabled: next });
+      this._task = { ...this._task, enabled: next };
+    } catch(e) {
+      alert(e.status === 422
+        ? 'Cannot resume: the source this task comes from is disabled — enable the source first.'
+        : 'Failed: ' + e.message);
+    } finally {
+      this._toggling = false;
+    }
   }
 
   // Approval is offered only while a fetched end state is on screen. Derived,
@@ -692,6 +797,60 @@ class DcTaskDetail extends LitElement {
     return html`<p class="meta">No configuration needed for manual trigger.</p>`;
   }
 
+  // Fire-time values: they apply to this one run and are never written to
+  // dicode.yaml. The Parameters card below is the other half — same fields,
+  // persisted.
+  _renderRunForm() {
+    return html`
+      <div class="card" style="margin-bottom:var(--dicode-space-md)">
+        <h2 style="margin-bottom:0.75rem">Run with parameters</h2>
+        ${this._declaredParams().map(p => html`
+          <label style="display:block;margin-bottom:0.6rem">
+            <span style="font-size:0.85rem"><code>${p.name}</code>${p.required ? html` <span class="meta">required</span>` : ''}${p.type ? html` <span class="meta">${p.type}</span>` : ''}</span>
+            ${p.description ? html`<div class="meta" style="font-size:0.8rem">${p.description}</div>` : ''}
+            <input type="text" .value=${this._runParams[p.name] ?? ''} style="width:100%"
+              @input=${e => { this._runParams = { ...this._runParams, [p.name]: e.target.value }; }}>
+            ${this._runErrors[p.name] ? html`<div class="meta" style="color:var(--dicode-red)">${this._runErrors[p.name]}</div>` : ''}
+          </label>`)}
+        <div style="display:flex;gap:var(--dicode-space-sm);margin-top:0.5rem">
+          <button class="btn" @click=${() => this._fire(this._runParams)}>&#9654; Run</button>
+          <button class="btn secondary" @click=${() => { this._runOpen = false; this._runErrors = {}; }}>Cancel</button>
+        </div>
+      </div>`;
+  }
+
+  // Persisted values: saving writes an override into dicode.yaml, which is
+  // what every later run — cron, webhook, chain — will then use.
+  _renderParams() {
+    const dirty = this._declaredParams().some(p =>
+      this._paramEdits[p.name] !== undefined && this._paramEdits[p.name] !== (p.default || ''));
+    return html`
+      <div class="card" style="margin-bottom:var(--dicode-space-md)">
+        <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.75rem">
+          <h2 style="margin:0">Parameters</h2>
+          <span class="meta">saved as overrides in dicode.yaml — used by every trigger</span>
+        </div>
+        ${this._declaredParams().map(p => html`
+          <label style="display:block;margin-bottom:0.6rem">
+            <span style="font-size:0.85rem"><code>${p.name}</code>${p.required ? html` <span class="meta">required</span>` : ''}${p.type ? html` <span class="meta">${p.type}</span>` : ''}</span>
+            ${p.description ? html`<div class="meta" style="font-size:0.8rem">${p.description}</div>` : ''}
+            <span style="display:flex;gap:var(--dicode-space-sm);align-items:center">
+              <input type="text" .value=${this._paramValue(p)} style="flex:1"
+                @input=${e => { this._paramEdits = { ...this._paramEdits, [p.name]: e.target.value }; }}>
+              <button class="btn btn-sm secondary" ?disabled=${this._paramSaving}
+                title="Drop the override and go back to the value the task itself declares"
+                @click=${() => this._resetParam(p.name)}>&#8634;</button>
+            </span>
+          </label>`)}
+        <div style="display:flex;gap:var(--dicode-space-sm);align-items:center;margin-top:0.5rem">
+          <button class="btn" ?disabled=${!dirty || this._paramSaving} @click=${() => this._saveParams()}>Save</button>
+          ${dirty ? html`<button class="btn secondary" ?disabled=${this._paramSaving}
+            @click=${() => { this._paramEdits = {}; this._paramStatus = ''; }}>Cancel</button>` : ''}
+          ${this._paramStatus ? html`<span class="meta">${this._paramStatus}</span>` : ''}
+        </div>
+      </div>`;
+  }
+
   render() {
     if (this._error) return html`<p style="color:red">Error: ${this._error}</p>`;
     if (!this._task) return html`<div class="meta">Loading…</div>`;
@@ -709,10 +868,13 @@ class DcTaskDetail extends LitElement {
     const hasEditor  = !isPipeline && !!task.script_file;
 
     const needsApproval = task.pending_approval === true;
+    const paused = task.enabled === false;
 
     return html`
       <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:var(--dicode-space-sm)">
         <h1 style="margin:0">${task.name}</h1>
+        ${paused ? html`<span title="Disabled by an override in dicode.yaml — no trigger is armed"
+          style="padding:0 0.45rem;font-size:0.75rem;border-radius:3px;background:var(--dicode-card-bg);color:var(--dicode-muted);border:var(--dicode-border-width) solid var(--dicode-border)">paused</span>` : ''}
         ${needsApproval ? html`<span title="This task is new or changed and its triggers are not armed until approved"
           style="padding:0 0.45rem;font-size:0.75rem;border-radius:3px;background:rgba(210,153,34,0.18);color:#d29922;border:var(--dicode-border-width) solid rgba(210,153,34,0.45)">pending approval</span>` : ''}
         ${needsApproval ? html`<button class="btn" style="background:#d29922" @click=${() => this._approve()}
@@ -723,7 +885,11 @@ class DcTaskDetail extends LitElement {
         ${needsApproval ? html`<button class="btn btn-sm secondary" @click=${() => this._toggleState()}>${this._stateOpen ? 'Hide review' : 'Show review'}</button>` : ''}
         <button class="btn" @click=${() => this._run()}>&#9654; Run now</button>
         ${hasEditor ? html`<button class="btn" style="background:var(--dicode-muted)" @click=${() => this._openEditor()}>&#9998; Edit code</button>` : ''}
+        <button class="btn btn-sm secondary" ?disabled=${this._toggling}
+          title=${paused ? 'Re-arm this task\'s triggers' : 'Disarm this task\'s triggers — nothing fires until resumed'}
+          @click=${() => this._toggleEnabled()}>${paused ? html`&#9654; Resume` : html`&#10074;&#10074; Pause`}</button>
       </div>
+      ${this._runOpen ? this._renderRunForm() : ''}
       ${needsApproval && this._stateOpen ? this._renderStatePanel() : ''}
       ${task.description ? html`<div class="task-desc">${unsafeHTML(marked.parse(task.description))}</div>` : ''}
 
@@ -733,6 +899,8 @@ class DcTaskDetail extends LitElement {
         <button class="btn btn-sm" style="background:var(--dicode-muted);margin-left:auto"
           @click=${() => { this._triggerOpen = !this._triggerOpen; }}>&#9998; Edit trigger</button>
       </div>
+
+      ${this._declaredParams().length ? this._renderParams() : ''}
 
       ${isPipeline ? this._renderStages(task) : ''}
 

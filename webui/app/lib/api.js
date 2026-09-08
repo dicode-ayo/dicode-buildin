@@ -21,11 +21,27 @@ export async function api(method, path, body) {
     // Show the overlay and wait for the user to authenticate.
     await _awaitLogin();
     const retry = await _fetch(method, path, body);
-    if (!retry.ok) throw new Error(await retry.text());
+    if (!retry.ok) throw await _error(retry);
     return _parse(retry);
   }
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) throw await _error(res);
   return _parse(res);
+}
+
+// _error carries the HTTP status and the decoded body onto the thrown Error.
+// Callers that only read .message are unaffected; the ones that need to tell a
+// 409 from a 422 — or read a 422's per-field detail — no longer have to
+// pattern-match the message text to do it.
+async function _error(res) {
+  const text = await res.text();
+  const err = new Error(text || res.statusText);
+  err.status = res.status;
+  try {
+    err.body = JSON.parse(text);
+  } catch {
+    // Not JSON — .message is all there is.
+  }
+  return err;
 }
 
 function _fetch(method, path, body) {
