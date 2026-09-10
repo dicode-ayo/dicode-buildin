@@ -12,6 +12,11 @@ runtime: deno
 permissions:
   env:
     - DICODE_PORT
+    # gdbus reaches the session bus through these; the daemon forwards no
+    # session context by default, so without them the SNI probe cannot tell an
+    # unreachable bus from a session that hosts no tray.
+    - DBUS_SESSION_BUS_ADDRESS
+    - XDG_RUNTIME_DIR
   # Unrestricted because the systray helper binary runs from a dynamic temp
   # path; the task also spawns xdg-open (Open Dashboard) and gdbus (SNI-host
   # probe, see sni.ts). A future least-privilege pass must keep those covered.

@@ -12,6 +12,20 @@ const WATCHERS = [
   "org.freedesktop.StatusNotifierWatcher",
 ];
 
+/** What a single watcher probe established.
+ *  - `reply`: the watcher answered; `stdout` carries its reply.
+ *  - `unowned`: the bus answered that nobody owns this name.
+ *  - `unreachable`: the session bus was never reached, so nothing is known. */
+export type WatcherProbe =
+  | { kind: "reply"; stdout: string }
+  | { kind: "unowned" }
+  | { kind: "unreachable" };
+
+/** The state of SNI hosting on the session bus.
+ *  `"unreachable"` and `"unknown"` are both "cannot tell", kept apart because
+ *  only the former names a cause the operator can act on. */
+export type HostProbe = boolean | "unreachable" | "unknown";
+
 /** Interpret a `gdbus call … IsStatusNotifierHostRegistered` reply
  *  (e.g. `(<true>,)`). Returns null when the reply can't be interpreted. */
 export function parseHostRegistered(stdout: string): boolean | null {
@@ -20,10 +34,19 @@ export function parseHostRegistered(stdout: string): boolean | null {
   return null;
 }
 
-/** Query one watcher's IsStatusNotifierHostRegistered via gdbus. Returns the
- *  raw stdout, or null if that watcher name is not registered. */
-async function gdbusRunner(dest: string): Promise<string | null> {
-  const { code, stdout } = await new Deno.Command("gdbus", {
+/** Classify a failed `gdbus call`. ServiceUnknown is the bus itself replying
+ *  that the name has no owner, which is a real answer; every other failure
+ *  (no DBUS_SESSION_BUS_ADDRESS, autolaunch refused, socket missing) means the
+ *  call never got far enough to learn anything. */
+export function classifyGdbusFailure(stderr: string): WatcherProbe {
+  return /ServiceUnknown|not provided by any \.service files/.test(stderr)
+    ? { kind: "unowned" }
+    : { kind: "unreachable" };
+}
+
+/** Query one watcher's IsStatusNotifierHostRegistered via gdbus. */
+async function gdbusRunner(dest: string): Promise<WatcherProbe> {
+  const { code, stdout, stderr } = await new Deno.Command("gdbus", {
     args: [
       "call",
       "--session",
@@ -37,43 +60,59 @@ async function gdbusRunner(dest: string): Promise<string | null> {
       "IsStatusNotifierHostRegistered",
     ],
     stdout: "piped",
-    stderr: "null",
+    stderr: "piped",
   }).output();
-  return code === 0 ? new TextDecoder().decode(stdout) : null;
+  if (code === 0) {
+    return { kind: "reply", stdout: new TextDecoder().decode(stdout) };
+  }
+  return classifyGdbusFailure(new TextDecoder().decode(stderr));
 }
 
 /** Best-effort: is an SNI host registered on the session bus?
  *  - true/false when a watcher answers definitively,
- *  - false when no watcher exists at all (a host is then impossible),
- *  - null when we can't tell (gdbus missing/erroring, or an unreadable reply),
- *    so callers can stay quiet instead of warning on a guess. */
+ *  - false when the bus confirms no watcher owns either name (a host is then
+ *    impossible),
+ *  - "unreachable" when the session bus was never reached, so the absence of a
+ *    watcher proves nothing,
+ *  - "unknown" when the tooling is unusable or a reply is unreadable,
+ *  so callers can stay quiet instead of warning on a guess. */
 export async function probeSNIHost(
-  runner: (dest: string) => Promise<string | null> = gdbusRunner,
-): Promise<boolean | null> {
-  let sawWatcher = false;
+  runner: (dest: string) => Promise<WatcherProbe> = gdbusRunner,
+): Promise<HostProbe> {
+  let reachedBus = false;
   for (const dest of WATCHERS) {
-    let out: string | null;
+    let probe: WatcherProbe;
     try {
-      out = await runner(dest);
+      probe = await runner(dest);
     } catch {
-      return null; // tooling unusable — don't nag
+      return "unknown"; // tooling unusable — don't nag
     }
-    if (out === null) continue; // this watcher name absent, try the next
-    sawWatcher = true;
-    const registered = parseHostRegistered(out);
+    if (probe.kind === "unreachable") continue;
+    reachedBus = true;
+    if (probe.kind === "unowned") continue;
+    const registered = parseHostRegistered(probe.stdout);
     if (registered !== null) return registered;
+    return "unknown"; // a watcher answered, but not in a shape we understand
   }
-  return sawWatcher ? null : false;
+  return reachedBus ? false : "unreachable";
 }
 
 /** An actionable hint when the tray icon will likely be invisible, else null.
  *  Pure and synchronous so the decision is unit-testable. */
 export function trayVisibilityHint(
   os: string,
-  hostRegistered: boolean | null,
+  host: HostProbe,
 ): string | null {
   if (os !== "linux") return null; // macOS/Windows render natively
-  if (hostRegistered !== false) return null; // true = shown; null = unknown
+  if (host === "unreachable") {
+    return (
+      "tray: could not reach the session bus, so whether the icon will appear " +
+      "is unknown. The probe needs DBUS_SESSION_BUS_ADDRESS (and " +
+      "XDG_RUNTIME_DIR) in the task environment; declare them under " +
+      "permissions.env. See ./tray/README.md."
+    );
+  }
+  if (host !== false) return null; // true = shown; "unknown" = no basis to warn
   return (
     "tray: no StatusNotifierItem host is running on the session bus, so the " +
     "icon will not appear. Bare window managers (i3/dwm/bspwm/sway) don't host " +
