@@ -55,7 +55,7 @@ test("parseHostRegistered: reads gdbus true/false, null on garbage", () => {
   assert.equal(parseHostRegistered("unexpected reply"), null);
 });
 
-test("classifyGdbusFailure: ServiceUnknown is an answer, everything else is not", () => {
+test("classifyGdbusFailure: only ServiceUnknown reports on ownership", () => {
   assert.equal(
     classifyGdbusFailure(
       "Error: GDBus.Error:org.freedesktop.DBus.Error.ServiceUnknown: The name " +
@@ -63,11 +63,42 @@ test("classifyGdbusFailure: ServiceUnknown is an answer, everything else is not"
     ).kind,
     "unowned",
   );
+  // A bus that answers with any other error was reached, so it disproves
+  // nothing about hosting — the distinction this whole module turns on.
   assert.equal(
     classifyGdbusFailure(
-      "Error: Cannot autolaunch D-Bus without X11 $DISPLAY",
+      "Error: GDBus.Error:org.freedesktop.DBus.Error.InvalidArgs: No such " +
+        "property “IsStatusNotifierHostRegistered”",
+    ).kind,
+    "unknown",
+  );
+  assert.equal(
+    classifyGdbusFailure(
+      "Error: GDBus.Error:org.freedesktop.DBus.Error.AccessDenied: Rejected",
+    ).kind,
+    "unknown",
+  );
+});
+
+test("classifyGdbusFailure: a connection failure carries no D-Bus error name", () => {
+  assert.equal(
+    classifyGdbusFailure(
+      "Error connecting: Cannot autolaunch D-Bus without X11 $DISPLAY",
     ).kind,
     "unreachable",
+  );
+  assert.equal(
+    classifyGdbusFailure(
+      "Error connecting: Could not connect: No such file or directory",
+    ).kind,
+    "unreachable",
+  );
+});
+
+test("probeSNIHost: a bus that errors is never a 'no host' verdict", async () => {
+  assert.equal(
+    await probeSNIHost(() => Promise.resolve({ kind: "unknown" as const })),
+    "unknown",
   );
 });
 

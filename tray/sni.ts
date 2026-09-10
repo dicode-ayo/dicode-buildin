@@ -15,10 +15,13 @@ const WATCHERS = [
 /** What a single watcher probe established.
  *  - `reply`: the watcher answered; `stdout` carries its reply.
  *  - `unowned`: the bus answered that nobody owns this name.
+ *  - `unknown`: the bus answered, but with an error that says nothing about
+ *    who is hosting (a wrong property, a denied read).
  *  - `unreachable`: the session bus was never reached, so nothing is known. */
 export type WatcherProbe =
   | { kind: "reply"; stdout: string }
   | { kind: "unowned" }
+  | { kind: "unknown" }
   | { kind: "unreachable" };
 
 /** The state of SNI hosting on the session bus.
@@ -34,14 +37,19 @@ export function parseHostRegistered(stdout: string): boolean | null {
   return null;
 }
 
-/** Classify a failed `gdbus call`. ServiceUnknown is the bus itself replying
- *  that the name has no owner, which is a real answer; every other failure
- *  (no DBUS_SESSION_BUS_ADDRESS, autolaunch refused, socket missing) means the
- *  call never got far enough to learn anything. */
+/** Classify a failed `gdbus call` by how far it got.
+ *
+ *  gdbus prefixes a reply carrying a D-Bus error name with `GDBus.Error:`,
+ *  which is proof the call reached the bus; a connection failure (no
+ *  DBUS_SESSION_BUS_ADDRESS, autolaunch refused, socket missing) is reported
+ *  without one. Of the errors the bus can return, only ServiceUnknown says
+ *  anything about who owns the watcher name — InvalidArgs and AccessDenied
+ *  leave hosting exactly as unknown as before the call. */
 export function classifyGdbusFailure(stderr: string): WatcherProbe {
+  if (!/GDBus\.Error:/.test(stderr)) return { kind: "unreachable" };
   return /ServiceUnknown|not provided by any \.service files/.test(stderr)
     ? { kind: "unowned" }
-    : { kind: "unreachable" };
+    : { kind: "unknown" };
 }
 
 /** Query one watcher's IsStatusNotifierHostRegistered via gdbus. */
@@ -80,6 +88,10 @@ export async function probeSNIHost(
   runner: (dest: string) => Promise<WatcherProbe> = gdbusRunner,
 ): Promise<HostProbe> {
   let reachedBus = false;
+  // Set when the bus answered without settling the question. Only a bus that
+  // answered every time, and every time said the name is unowned, is grounds
+  // for concluding there is no host.
+  let inconclusive = false;
   for (const dest of WATCHERS) {
     let probe: WatcherProbe;
     try {
@@ -90,10 +102,15 @@ export async function probeSNIHost(
     if (probe.kind === "unreachable") continue;
     reachedBus = true;
     if (probe.kind === "unowned") continue;
+    if (probe.kind === "unknown") {
+      inconclusive = true;
+      continue;
+    }
     const registered = parseHostRegistered(probe.stdout);
     if (registered !== null) return registered;
-    return "unknown"; // a watcher answered, but not in a shape we understand
+    inconclusive = true; // answered, but not in a shape we understand
   }
+  if (inconclusive) return "unknown";
   return reachedBus ? false : "unreachable";
 }
 
