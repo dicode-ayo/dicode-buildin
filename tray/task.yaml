@@ -31,11 +31,22 @@ permissions:
     - github.com
     - objects.githubusercontent.com
     - release-assets.githubusercontent.com
+  # Read-only, and the badge needs both: list_tasks to enumerate, get_runs to
+  # find the ones stopped waiting on a person.
+  dicode:
+    list_tasks: true
+    get_runs: true
 
 params:
   tray_version:
     description: Systray portable binary release tag
     default: "v0.2.0"
+  attention_poll_seconds:
+    description: >
+      How often to recount runs waiting on input, in seconds. Each poll costs
+      one control-plane round trip per registered task. Values below 5 are
+      clamped.
+    default: "30"
 
 trigger:
   daemon: true
