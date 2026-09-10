@@ -29,8 +29,17 @@ permissions:
 
 params:
   tray_version:
-    description: Systray portable binary release tag
-    default: "v0.2.0"
+    description: Systray portable binary release tag (dicode-ayo/systray-portable)
+    default: "v0.3.0"
+  left_click:
+    description: >
+      What a click on the icon itself does: "menu" opens the tray menu,
+      "dashboard" opens the dashboard. "dashboard" makes the tray advertise
+      ItemIsMenu=false, so a host that honors that hint stops opening the menu
+      on left click — the menu stays reachable on right click. Choose it on a
+      bar that renders XEmbed only (polybar, i3bar), where a left click
+      otherwise does nothing at all.
+    default: "menu"
 
 trigger:
   daemon: true

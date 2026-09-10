@@ -6,6 +6,14 @@
 
 import Systray, { type MenuItem } from "./systray/mod.ts";
 import { warnIfTrayInvisible } from "./sni.ts";
+import { helperArgs, type LeftClick, parseLeftClick } from "./leftclick.ts";
+
+// The dicode-ayo fork, which emits an event when the icon itself is clicked.
+// Upstream's helper answers the SNI Activate method with UnknownMethod, so on a
+// host that calls it directly — snixembed, bridging to an XEmbed-only bar such
+// as polybar or i3bar — a left click reaches nothing at all.
+const TRAY_URL_BASE =
+  "https://github.com/dicode-ayo/systray-portable/releases/download";
 
 // ── icon ─────────────────────────────────────────────────────────────────────
 //
@@ -77,6 +85,8 @@ export default async function main({ params }: DicodeSdk) {
 
   const version = await params.get("tray_version") ?? undefined;
 
+  const leftClick: LeftClick = parseLeftClick(await params.get("left_click"));
+
   const systray = new Systray({
     menu: {
       // icon is a base64-encoded PNG string; pass empty string to use the default
@@ -89,6 +99,8 @@ export default async function main({ params }: DicodeSdk) {
     debug: false,
     copyDir: true, // copy the native helper binary to a temp dir on first run
     version,
+    urlBase: TRAY_URL_BASE,
+    args: helperArgs(leftClick),
   });
 
   // ── event loop ───────────────────────────────────────────────────────────────
@@ -105,6 +117,14 @@ export default async function main({ params }: DicodeSdk) {
   setTimeout(() => {
     warnIfTrayInvisible().catch(() => {});
   }, 3000);
+
+  if (leftClick === "dashboard") {
+    systray.onActivate(() => {
+      openBrowser(dashboardURL).catch((err) =>
+        console.error(`tray: openBrowser error: ${err}`)
+      );
+    });
+  }
 
   systray.onClick((action) => {
     switch (action.item.title) {

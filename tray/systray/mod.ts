@@ -53,11 +53,17 @@ export interface ClickEvent {
   __id: number;
 }
 
+/** The icon itself was clicked, as opposed to one of its menu entries.
+ *  Only emitted when the helper was started with `-activate`. */
+export interface ActivateEvent {
+  type: "activate";
+}
+
 export interface ReadyEvent {
   type: "ready";
 }
 
-export type Event = ClickEvent | ReadyEvent;
+export type Event = ClickEvent | ActivateEvent | ReadyEvent;
 
 export interface UpdateItemAction {
   type: "update-item";
@@ -70,8 +76,8 @@ export interface UpdateMenuAction {
   menu: Menu;
 }
 
-export interface UpdateMenuAndItemAction {
-  type: "update-menu-and-item";
+export interface UpdateItemAndMenuAction {
+  type: "update-item-and-menu";
   menu: Menu;
   item: MenuItem;
   seq_id?: number;
@@ -84,7 +90,7 @@ export interface ExitAction {
 export type Action =
   | UpdateItemAction
   | UpdateMenuAction
-  | UpdateMenuAndItemAction
+  | UpdateItemAndMenuAction
   | ExitAction;
 
 export interface Conf {
@@ -94,6 +100,11 @@ export interface Conf {
   copyDir?: boolean;
   /** Systray portable binary version tag, e.g. "v0.2.0". Defaults to DEFAULT_VERSION. */
   version?: string;
+  /** Release host to download the binary from. Defaults to DEFAULT_URL_BASE.
+   *  A build carrying features upstream lacks needs its own base. */
+  urlBase?: string;
+  /** Arguments passed to the helper binary, e.g. ["-activate"]. */
+  args?: string[];
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -173,7 +184,7 @@ function actionTrimmer(action: Action) {
     };
   } else if (action.type === "update-menu") {
     return { type: action.type, menu: menuTrimmer(action.menu) };
-  } else if (action.type === "update-menu-and-item") {
+  } else if (action.type === "update-item-and-menu") {
     return {
       type: action.type,
       item: itemTrimmer(action.item),
@@ -207,8 +218,8 @@ async function* streamLines(
   }
 }
 
-const getTrayPath = async (version: string) => {
-  const base = `${DEFAULT_URL_BASE}/${version}`;
+const getTrayPath = async (version: string, urlBase = DEFAULT_URL_BASE) => {
+  const base = `${urlBase}/${version}`;
   const { arch, os } = Deno.build;
   let binName: string;
 
@@ -244,6 +255,7 @@ type Events = {
   error: [string];
   exit: [Deno.CommandStatus];
   click: [ClickEvent];
+  activate: [];
   ready: [];
 };
 
@@ -275,6 +287,7 @@ export default class SysTray extends EventEmitter<Events> {
 
   private run(binPath: string) {
     this._process = new Deno.Command(binPath, {
+      args: this._conf.args ?? [],
       stdin: "piped",
       stdout: "piped",
       stderr: "piped",
@@ -305,7 +318,10 @@ export default class SysTray extends EventEmitter<Events> {
 
   private async init() {
     const conf = this._conf;
-    this._binPath = await getTrayPath(this._conf.version ?? DEFAULT_VERSION);
+    this._binPath = await getTrayPath(
+      this._conf.version ?? DEFAULT_VERSION,
+      this._conf.urlBase ?? DEFAULT_URL_BASE,
+    );
     try {
       await Deno.chmod(this._binPath, 0o755);
     } catch {
@@ -332,6 +348,9 @@ export default class SysTray extends EventEmitter<Events> {
         action.item = Object.assign(item, action.item);
         if (this._conf.debug) log("%s, %o", "onClick", action);
         this.emit("click", action);
+      } else if (action.type === "activate") {
+        if (this._conf.debug) log("%s %o", "onActivate", action);
+        this.emit("activate");
       } else if (action.type === "ready") {
         if (this._conf.debug) log("%s %o", "onReady", action);
         this.emit("ready");
@@ -341,6 +360,11 @@ export default class SysTray extends EventEmitter<Events> {
 
   ready() {
     return this._ready;
+  }
+
+  /** Convenience wrapper for on('activate', handler). */
+  onActivate(handler: () => void) {
+    this.on("activate", handler);
   }
 
   /** Convenience wrapper for on('click', handler). */
@@ -365,7 +389,7 @@ export default class SysTray extends EventEmitter<Events> {
         action.menu = await resolveIcon(action.menu) as Menu;
         action.menu.items.forEach(updateCheckedInLinux);
         break;
-      case "update-menu-and-item":
+      case "update-item-and-menu":
         action.menu = await resolveIcon(action.menu) as Menu;
         action.menu.items.forEach(updateCheckedInLinux);
         updateCheckedInLinux(action.item);
