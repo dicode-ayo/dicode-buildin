@@ -6,6 +6,13 @@
 
 import Systray, { type MenuItem } from "./systray/mod.ts";
 import { warnIfTrayInvisible } from "./sni.ts";
+import {
+  countAttention,
+  looksDifferent,
+  toRuns,
+  type TrayLook,
+  trayLook,
+} from "./attention.ts";
 
 // ── icon ─────────────────────────────────────────────────────────────────────
 //
@@ -20,7 +27,19 @@ import { warnIfTrayInvisible } from "./sni.ts";
 const ICON_BASE64 =
   "iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAIAAAD8GO2jAAAAg0lEQVR4nGKpsXrLQEvARFPTh4UFLJRobj4qBGfXWr/DqmYQBxExzh/EPiDS+YPVB8Q7f1D6gCTnDz4fkOp8fEUFGWZhBST4gDwrGfFUOFTxxIBGMrKrkX1DNQuoAghYQLknBtoHlHtiEPiAQk8MDh9Q4gl8RQVVwKAJosFrASAAAP///MwvLg37TZMAAAAASUVORK5CYII=";
 
-export default async function main({ params }: DicodeSdk) {
+// The same 32×32 icon with a red dot in the top-right, ringed in the icon's own
+// purple so the dot stays legible once the bar scales it to 16px.
+const ICON_BADGED_BASE64 =
+  "iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAq0lEQVR42mOssXr7n2EAARPDAIMBdwALrS2otlmIwm89Ek/bEGg+KoTTcmxiTPTyOS45Jmr7vtb6HV7L0R0xfHIBctyPvHIA2ffNR4Uwsho2AFNDsxDA5whkOSZqx32t9Tu8jkAXo3lJSCg6mGjle6rVBdSwhCYhQC2HMRLTIKFlKAyNggjdx+QWu0O7KKZVKAytyogWoTD0qmNqh8LQbJBQMxQYR/uGI94BAN7aRTov5EUDAAAAAElFTkSuQmCC";
+
+const ICONS = { plain: ICON_BASE64, badged: ICON_BADGED_BASE64 };
+
+// How far back to look per task. A run waiting on input is near the top of its
+// task's list by construction, so a deep scan buys nothing and costs one IPC
+// round trip per task per poll.
+const RUN_SCAN_LIMIT = 20;
+
+export default async function main({ params, dicode }: DicodeSdk) {
   // ── platform browser-open helper ─────────────────────────────────────────────
 
   async function openBrowser(url: string): Promise<void> {
@@ -77,6 +96,14 @@ export default async function main({ params }: DicodeSdk) {
 
   const version = await params.get("tray_version") ?? undefined;
 
+  // Clamped: a sub-second interval would hammer the control plane with one
+  // round trip per task, and a non-numeric value must not disable the badge
+  // silently.
+  const pollSeconds = Math.max(
+    5,
+    Number(await params.get("attention_poll_seconds")) || 30,
+  );
+
   const systray = new Systray({
     menu: {
       // icon is a base64-encoded PNG string; pass empty string to use the default
@@ -105,6 +132,42 @@ export default async function main({ params }: DicodeSdk) {
   setTimeout(() => {
     warnIfTrayInvisible().catch(() => {});
   }, 3000);
+
+  // ── attention badge ──────────────────────────────────────────────────────────
+  //
+  // There is no daemon-side "is anything waiting for me" query, so the count is
+  // assembled from each task's recent runs. Failures here are swallowed: a tray
+  // that cannot count is still a working tray, and restart: always would
+  // otherwise turn a transient IPC error into an icon that disappears.
+
+  let shown: TrayLook | null = null;
+
+  async function refreshBadge(): Promise<void> {
+    const tasks = await dicode.list_tasks();
+    let waiting = 0;
+    for (const task of tasks) {
+      const runs = await dicode.get_runs(task.id, { limit: RUN_SCAN_LIMIT });
+      waiting += countAttention(toRuns(runs));
+    }
+    const next = trayLook(waiting, ICONS);
+    if (!looksDifferent(shown, next)) return;
+    await systray.sendAction({
+      type: "update-menu",
+      menu: {
+        icon: next.icon,
+        title: "dicode",
+        tooltip: next.tooltip,
+        items: menuItems,
+      },
+    });
+    shown = next;
+  }
+
+  const badgeIntervalMs = pollSeconds * 1000;
+  refreshBadge().catch((err) => console.error(`tray: badge refresh: ${err}`));
+  setInterval(() => {
+    refreshBadge().catch((err) => console.error(`tray: badge refresh: ${err}`));
+  }, badgeIntervalMs);
 
   systray.onClick((action) => {
     switch (action.item.title) {
