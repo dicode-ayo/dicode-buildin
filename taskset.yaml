@@ -28,6 +28,14 @@ spec:
       ref:
         path: ./webui/task.yaml
 
+    # ─── window: open a task's own webhook UI in a chrome-less window ──────
+    # A launcher, not a host: it resolves /hooks/<target>, spawns a browser
+    # detached and exits. list_tasks is how it finds the target's hook path
+    # and how it tells a task that serves no UI from one that does.
+    window:
+      ref:
+        path: ./window/task.yaml
+
     temp-cleanup:
       ref:
         path: ./temp-cleanup/task.yaml
