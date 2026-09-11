@@ -15,6 +15,7 @@ prompt. Treat a change here as a change to what every daemon runs.
 | `webui` | The dashboard SPA (`webui/app/`) and its routes. dicode-core only embeds `dicode.js` and the login page; everything else you see in the UI is served from here. |
 | `mcp` | The MCP server the daemon forwards `/mcp` to. |
 | `tray` | System tray icon, via a portable systray helper — no CGo. |
+| `window` | Opens another task's webhook UI in a chrome-less browser window, then exits. Geometry and decoration come from the i3/picom rules it prints. |
 | `notify`, `telegram`, `alert` | Notification delivery. `notify` is the desktop default; `telegram` reaches a headless host. |
 | `ai-agent`, `ai-agent-claude-cli`, `ai-agent-core` | The AI agent base and its Claude-CLI variant. `taskset.yaml` layers `dicodai`, `auto-fix` and `task-create-turn` on top as overrides. |
 | `task-create`, `write-task-file`, `verify-task-written`, `git-pr` | The AI task-authoring loop: scaffold, write, check, land. |

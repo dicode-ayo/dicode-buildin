@@ -28,6 +28,10 @@ spec:
       ref:
         path: ./webui/task.yaml
 
+    window:
+      ref:
+        path: ./window/task.yaml
+
     temp-cleanup:
       ref:
         path: ./temp-cleanup/task.yaml

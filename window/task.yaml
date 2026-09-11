@@ -1,0 +1,69 @@
+apiVersion: dicode/v1
+kind: Task
+name: "Window"
+description: |
+  Opens another task's own webhook UI in a chrome-less native window, then
+  exits. The window renders /hooks/<target> — the target task's existing UI,
+  session-gated by its own trigger.auth — so a windowed app needs no new page
+  anywhere: a task that wants a window ships an index.html and this supplies
+  the frame.
+
+  A launcher, not a host: it resolves a URL, builds an argv, spawns a browser
+  detached and returns. Closing the window is a browser event dicode never
+  sees.
+
+  Geometry and decoration are the window manager's. The run returns the i3
+  rule for the WM_CLASS instance it produced, to paste into a config once per
+  windowed app.
+runtime: deno
+
+trigger:
+  manual: true
+
+params:
+  target:
+    type: string
+    required: true
+    description: "Task whose UI to show. Namespaced id (buildin/webui) or a bare name when unambiguous."
+  host:
+    type: string
+    default: "chrome"
+    description: "Which browser owns the window: chrome, chromium, brave or edge."
+  port:
+    type: number
+    default: 8080
+    description: "Port the daemon's web server listens on. No env var carries it, so a non-default server.port must be repeated here."
+  width:
+    type: number
+    default: 0
+    description: "Window width in pixels, emitted as an i3 `resize set` rule. 0 leaves sizing to the WM; needs height too."
+  height:
+    type: number
+    default: 0
+    description: "Window height in pixels, emitted as an i3 `resize set` rule. 0 leaves sizing to the WM; needs width too."
+  alignment:
+    type: string
+    default: ""
+    description: "`center` maps to i3's `move position center`. Empty leaves placement to the WM."
+
+permissions:
+  # Deno gates the binary it launches, which is setsid — and setsid execs
+  # whatever it is handed, so this grant cannot be narrowed here. The closed
+  # host table in task.ts is what bounds which binaries can be reached. Naming
+  # the browsers as well would narrow nothing and logs a resolution error per
+  # run for each one the host has not installed.
+  run:
+    - setsid
+  # DISPLAY and XAUTHORITY are not on the daemon's host-passthrough allowlist
+  # (pkg/runtime/subprocenv.go), and a task subprocess inherits nothing else.
+  # Without them the browser has no X server and exits immediately, silently,
+  # because the spawn is detached.
+  env:
+    - DISPLAY
+    - XAUTHORITY
+    - DICODE_DATADIR
+    - HOME
+  dicode:
+    list_tasks: true
+
+timeout: 30s
