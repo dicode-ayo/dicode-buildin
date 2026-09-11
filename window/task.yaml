@@ -8,13 +8,13 @@ description: |
   anywhere: a task that wants a window ships an index.html and this supplies
   the frame.
 
-  Not a host and not a runner. It resolves a URL, builds an argv, spawns a
-  browser detached and returns; nothing about the window is dicode's to manage
-  after launch. Closing it is a browser event dicode never sees.
+  A launcher, not a host: it resolves a URL, builds an argv, spawns a browser
+  detached and returns. Closing the window is a browser event dicode never
+  sees.
 
-  Geometry and decoration are the window manager's: the run returns the i3 and
-  picom rules for the WM_CLASS instance it just produced, to paste into a
-  config once per windowed app.
+  Geometry and decoration are the window manager's. The run returns the i3
+  rule for the WM_CLASS instance it produced, to paste into a config once per
+  windowed app.
 runtime: deno
 
 trigger:
@@ -25,52 +25,39 @@ params:
     type: string
     required: true
     description: "Task whose UI to show. Namespaced id (buildin/webui) or a bare name when unambiguous."
-  host_binary:
+  host:
     type: string
-    default: "google-chrome"
-    description: "Chromium-family binary that owns the window."
+    default: "chrome"
+    description: "Which browser owns the window: chrome, chromium, brave or edge."
   port:
-    type: string
-    default: "8080"
+    type: number
+    default: 8080
     description: "Port the daemon's web server listens on. No env var carries it, so a non-default server.port must be repeated here."
   width:
-    type: string
-    default: ""
-    description: "Window width in pixels. Emitted as an i3 `resize set` rule; needs height too."
+    type: number
+    default: 0
+    description: "Window width in pixels, emitted as an i3 `resize set` rule. 0 leaves sizing to the WM; needs height too."
   height:
-    type: string
-    default: ""
-    description: "Window height in pixels. Emitted as an i3 `resize set` rule; needs width too."
+    type: number
+    default: 0
+    description: "Window height in pixels, emitted as an i3 `resize set` rule. 0 leaves sizing to the WM; needs width too."
   alignment:
     type: string
     default: ""
     description: "`center` maps to i3's `move position center`. Empty leaves placement to the WM."
-  opacity:
-    type: string
-    default: ""
-    description: "0-100. Emits a picom opacity-rule keyed on the instance. Empty emits no picom rule."
-  sticky:
-    type: string
-    default: "false"
-    description: "Add `sticky enable` to the i3 rule, keeping the window across workspace switches."
-  profile_dir:
-    type: string
-    default: ""
-    description: "Browser profile directory. Empty uses the shared one under the dicode data dir."
 
 permissions:
-  # setsid is what Deno actually launches, and it will exec whatever it is
-  # handed — so this grant is as wide as the host binary the params name, and
-  # listing the browser alongside it documents intent rather than narrowing
-  # anything. The double fork is not optional: Deno kills a spawned child when
-  # the run exits, which would close the window the first launch just opened.
+  # Deno gates the binary it launches, which is setsid — and setsid execs
+  # whatever it is handed, so this grant cannot be narrowed here. The closed
+  # host table in task.ts is what bounds which binaries can be reached. Naming
+  # the browsers as well would narrow nothing and logs a resolution error per
+  # run for each one the host has not installed.
   run:
     - setsid
-    - google-chrome
   # DISPLAY and XAUTHORITY are not on the daemon's host-passthrough allowlist
   # (pkg/runtime/subprocenv.go), and a task subprocess inherits nothing else.
-  # Without them the browser has no X server to draw on and exits immediately,
-  # taking the window with it — silently, because the spawn is detached.
+  # Without them the browser has no X server and exits immediately, silently,
+  # because the spawn is detached.
   env:
     - DISPLAY
     - XAUTHORITY
