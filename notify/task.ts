@@ -1,4 +1,5 @@
 import { notifyFailureMessage } from "./failure.ts";
+import { type Urgency, windowsNotifyCommand } from "./windows.ts";
 
 export default async function main({ params }: DicodeSdk) {
   // ── params ────────────────────────────────────────────────────────────────────
@@ -16,8 +17,6 @@ export default async function main({ params }: DicodeSdk) {
   //   min | low → low      (notify-send urgency / WinForms ToolTipIcon::None)
   //   default   → normal   (dialog-information / Info)
   //   high | urgent → critical  (dialog-error / Warning)
-
-  type Urgency = "low" | "normal" | "critical";
 
   function toUrgency(p: string): Urgency {
     switch (p) {
@@ -46,17 +45,6 @@ export default async function main({ params }: DicodeSdk) {
         return "dialog-error";
       default:
         return "dialog-information";
-    }
-  }
-
-  function toWinIcon(urgency: Urgency): string {
-    switch (urgency) {
-      case "low":
-        return "None";
-      case "critical":
-        return "Warning";
-      default:
-        return "Info";
     }
   }
 
@@ -106,26 +94,9 @@ export default async function main({ params }: DicodeSdk) {
       }"`,
     ];
   } else if (os === "windows") {
-    // PowerShell is always present on Windows. NotifyIcon.ShowBalloonTip delivers
-    // a system tray balloon / toast (shown in the notification centre on Win 10+).
-    // ToolTipIcon: None | Info | Warning | Error
-    const winIcon = toWinIcon(urgency);
-    const esc = (s: string) => s.replace(/'/g, "''"); // PowerShell single-quote escape
-    const ps = [
-      // System.Drawing supplies SystemIcons below. Windows PowerShell loads it
-      // as a Forms dependency; naming it keeps the snippet correct under pwsh.
-      "Add-Type -AssemblyName System.Windows.Forms;",
-      "Add-Type -AssemblyName System.Drawing;",
-      "$n = New-Object System.Windows.Forms.NotifyIcon;",
-      "$n.Icon = [System.Drawing.SystemIcons]::Application;",
-      "$n.Visible = $true;",
-      `$n.ShowBalloonTip(5000, '${esc(title)}', '${
-        esc(displayBody)
-      }', [System.Windows.Forms.ToolTipIcon]::${winIcon});`,
-      "Start-Sleep -Seconds 1;",
-      "$n.Dispose()",
-    ].join(" ");
-    cmd = ["powershell", "-NoProfile", "-Command", ps];
+    // NotifyIcon.ShowBalloonTip delivers a system tray balloon / toast, shown in
+    // the notification centre on Win 10+.
+    cmd = windowsNotifyCommand(title, displayBody, urgency);
   } else {
     throw new Error(`Unsupported OS for notifications: ${os}`);
   }
