@@ -5,7 +5,7 @@
  * runtimes allocate their wrapper files through Go's os.CreateTemp(""), which
  * is /tmp only on Unix; on Windows it is %TEMP%. These tests pin that the task
  * reads the root from node:os rather than a literal, and that the file sweep
- * takes the root as an argument so the two can never be re-fused.
+ * takes the root as an argument.
  *
  * parseRunID and sweepTempFiles are exported for this file; main() is not
  * exercised directly because it needs a live IPC-backed `dicode` handle.

@@ -24,12 +24,17 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Dicode, DicodeSdk } from "../sdk.ts";
 
+export interface SweepCounts {
+  scanned: number;
+  deleted: number;
+  skipped: number;
+}
+
 const PREFIXES = ["dicode-shim-", "dicode-runner-", "dicode-task-"];
 
 // The runtimes allocate wrapper files through Go's os.CreateTemp(""), so the
 // sweep root has to be whatever that resolves to — $TMPDIR or /tmp on Unix,
-// %TEMP% on Windows. The task.yaml fs grant names the same directory through
-// ${TEMPDIR}, which the daemon expands from os.TempDir().
+// %TEMP% on Windows. The task.yaml fs grant names it through ${TEMPDIR}.
 export const TEMP_DIR = tmpdir();
 
 // DIR_TTL_MS is the age threshold for the ${DATADIR}/tmp/ sweep.
@@ -93,15 +98,10 @@ async function listDir(dir: string): Promise<Deno.DirEntry[]> {
 // sweepDataDirTmp removes per-invocation scratch directories under
 // ${DATADIR}/tmp/<task>/<uuid>/ that are older than DIR_TTL_MS.
 // Returns counters for logging.
-async function sweepDataDirTmp(): Promise<
-  { scanned: number; deleted: number; skipped: number }
-> {
+async function sweepDataDirTmp(): Promise<SweepCounts> {
   // `||` (not `??`) throughout: a declared-but-unset entry arrives as "", and
   // `??` would take it, rooting the sweep at a relative "tmp" under the task's
-  // cwd. node:os homedir() would need an --allow-sys=homedir grant for a branch
-  // the daemon never reaches (it always sets DICODE_DATADIR), so read the env
-  // the sandbox already exposes. HOME is unset on Windows; USERPROFILE is its
-  // twin.
+  // cwd. HOME is unset on Windows; USERPROFILE is its twin.
   const home = Deno.env.get("HOME") || Deno.env.get("USERPROFILE") || "/root";
   const dataDir = Deno.env.get("DICODE_DATADIR") || join(home, ".dicode");
   const root = join(dataDir, "tmp");
@@ -139,12 +139,11 @@ async function sweepDataDirTmp(): Promise<
 }
 
 // sweepTempFiles removes wrapper files under tempDir whose embedded run id is
-// not in running. The root is a parameter so the platform question stays with
-// the caller and cannot drift back into a literal.
+// not in running.
 export async function sweepTempFiles(
   tempDir: string,
   running: Set<string>,
-): Promise<{ scanned: number; deleted: number; skipped: number }> {
+): Promise<SweepCounts> {
   let scanned = 0, deleted = 0, skipped = 0;
 
   for (const entry of await listDir(tempDir)) {

@@ -153,6 +153,19 @@ for (const id of ["buildin/task-create-turn"]) {
 // cannot read.
 for (const summary of await listTasks()) {
   const spec = await getTask(summary.id);
+
+  // An unknown ${VAR} survives expansion as its own literal, so a grant naming
+  // a template variable the daemon does not provide reaches the sandbox as a
+  // relative path under the task directory: the task registers, runs, and holds
+  // permission to somewhere nothing writes. The variable set belongs to the
+  // running daemon, so this is the only layer that can see it.
+  for (const entry of (spec.permissions?.fs ?? [])) {
+    check(
+      !String(entry.Path).includes("${"),
+      `${summary.id} fs grant "${entry.Path}" holds an unresolved template variable`,
+    );
+  }
+
   const skills = param(spec, "skills")?.default;
   if (!skills) continue;
   const readable = (spec.permissions?.fs ?? []).some(
@@ -165,21 +178,6 @@ for (const summary of await listTasks()) {
       JSON.stringify(spec.permissions?.fs)
     }`,
   );
-}
-
-// An unknown ${VAR} survives expansion as its own literal, so a grant naming a
-// template variable the daemon does not provide reaches the sandbox as a
-// relative path under the task directory. The task still registers and still
-// runs; it just holds permission to somewhere nothing writes. Since the
-// variable set is the running daemon's, this is the only layer that can tell.
-for (const summary of await listTasks()) {
-  const spec = await getTask(summary.id);
-  for (const entry of (spec.permissions?.fs ?? []) as Json[]) {
-    check(
-      !String(entry.Path).includes("${"),
-      `${summary.id} fs grant "${entry.Path}" holds an unresolved template variable`,
-    );
-  }
 }
 
 if (failures.length > 0) {

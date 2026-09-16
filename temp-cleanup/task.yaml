@@ -23,9 +23,10 @@ trigger:
 
 permissions:
   fs:
-    # ${TEMPDIR} expands to the daemon's os.TempDir() — the same call the
-    # runtimes allocate wrapper files through, so the grant and the files
-    # cannot resolve to different directories.
+    # ${TEMPDIR} expands to the daemon's os.TempDir(), the call the runtimes
+    # allocate wrapper files through. The sweep reads node:os tmpdir(), which
+    # consults TEMP before TMP where os.TempDir() consults TMP before TEMP:
+    # the two agree unless a host sets them to different directories.
     - path: "${TEMPDIR}"
       permission: rw
     - path: "${DATADIR}/tmp"
