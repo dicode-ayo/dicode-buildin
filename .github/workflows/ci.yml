@@ -156,3 +156,139 @@ jobs:
           name: daemon-log
           path: ${{ env.DICODE_DATA_DIR }}/daemon.log
           retention-days: 3
+
+  test-tasks-windows:
+    name: Test tasks (Deno, Windows)
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.3.3
+
+      - name: Run Deno unit tests
+        run: deno test --allow-all --config=deno.json './**/task.test.ts' './taskset.test.ts'
+
+  test-daemon-windows:
+    name: Load and test via the dicode daemon (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.3.3
+
+      # One string has to work as both a bash path (mkdir, cat, test -e) and a
+      # Windows path (the daemon resolves whatever it is handed, so a git-bash
+      # /tmp would land it at C:\tmp). Forward slashes are a valid separator for
+      # both; the backslashes GitHub supplies are not.
+      - name: Resolve Windows-shaped paths
+        run: |
+          set -euo pipefail
+          {
+            echo "DICODE_DATA_DIR=$(echo "$RUNNER_TEMP" | tr '\\' '/')/dicode-ci"
+            echo "WORKSPACE_FWD=$(echo "$GITHUB_WORKSPACE" | tr '\\' '/')"
+          } >> "$GITHUB_ENV"
+
+      - name: Install the dicode binary
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag=$(gh release view --repo dicode-ayo/dicode-core --json tagName --jq .tagName)
+          gh release download "$tag" --repo dicode-ayo/dicode-core \
+            --pattern '*-windows-amd64.zip' --output dicode.zip
+          unzip -q dicode.zip -d dicode-bin
+          cp "$(find dicode-bin -name dicode.exe -type f | head -1)" ./dicode.exe
+          ./dicode.exe version
+
+      - name: Verify deno.lock is up to date
+        run: ./dicode.exe deno relock --check .
+
+      - name: Start the daemon and assert the taskset contract
+        run: |
+          set -euo pipefail
+          mkdir -p "$DICODE_DATA_DIR"
+
+          cat > "$DICODE_DATA_DIR/dicode-ci.yaml" <<SPECEOF
+          data_dir: $DICODE_DATA_DIR
+          database:
+            path: \${DATADIR}/data.db
+            type: sqlite
+          log_level: info
+          server:
+            port: 18765
+            auth: false
+            mcp: false
+            tray: false
+          relay:
+            enabled: false
+          spec:
+            entries:
+              buildin:
+                ref:
+                  path: $WORKSPACE_FWD/taskset.yaml
+                  watch: false
+          SPECEOF
+
+          ./dicode.exe daemon --config "$DICODE_DATA_DIR/dicode-ci.yaml" \
+            > "$DICODE_DATA_DIR/daemon.log" 2>&1 &
+          DAEMON_PID=$!
+          trap "kill $DAEMON_PID 2>/dev/null || true" EXIT
+
+          # `test -S` does not recognize the reparse point Windows presents an
+          # AF_UNIX socket as, so probe for existence and let the first
+          # `dicode task test` be the proof that IPC actually answers.
+          for i in $(seq 1 60); do
+            test -e "$DICODE_DATA_DIR/daemon.sock" && break
+            if [ "$i" -eq 60 ]; then
+              echo "Daemon did not become ready in 30 s"
+              cat "$DICODE_DATA_DIR/daemon.log"
+              exit 1
+            fi
+            sleep 0.5
+          done
+
+          deno run --allow-read --allow-net scripts/assert-taskset.ts \
+            http://127.0.0.1:18765
+
+          failed=0
+          for id in $(deno run --allow-read scripts/tasks-with-tests.ts); do
+            echo "::group::dicode task test $id"
+            name=$(echo "$id" | tr '/' '-')
+            if ! DICODE_DATA_DIR="$DICODE_DATA_DIR" ./dicode.exe task test "$id" \
+              --format=junit > "$RUNNER_TEMP/$name.xml"; then
+              echo "::error::$id failed"
+              failed=1
+            fi
+            echo "::endgroup::"
+          done
+          exit "$failed"
+
+      - name: Upload JUnit results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: task-test-results-windows
+          path: ${{ runner.temp }}/*.xml
+          retention-days: 7
+          if-no-files-found: warn
+
+      - name: Upload daemon log on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: daemon-log-windows
+          path: ${{ env.DICODE_DATA_DIR }}/daemon.log
+          retention-days: 3
