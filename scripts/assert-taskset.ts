@@ -167,6 +167,21 @@ for (const summary of await listTasks()) {
   );
 }
 
+// An unknown ${VAR} survives expansion as its own literal, so a grant naming a
+// template variable the daemon does not provide reaches the sandbox as a
+// relative path under the task directory. The task still registers and still
+// runs; it just holds permission to somewhere nothing writes. Since the
+// variable set is the running daemon's, this is the only layer that can tell.
+for (const summary of await listTasks()) {
+  const spec = await getTask(summary.id);
+  for (const entry of (spec.permissions?.fs ?? []) as Json[]) {
+    check(
+      !String(entry.Path).includes("${"),
+      `${summary.id} fs grant "${entry.Path}" holds an unresolved template variable`,
+    );
+  }
+}
+
 if (failures.length > 0) {
   console.error(`::error::${failures.length} resolved-spec contract failures`);
   for (const f of failures) console.error(`  ${f}`);
