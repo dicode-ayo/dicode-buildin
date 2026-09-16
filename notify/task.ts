@@ -112,7 +112,10 @@ export default async function main({ params }: DicodeSdk) {
     const winIcon = toWinIcon(urgency);
     const esc = (s: string) => s.replace(/'/g, "''"); // PowerShell single-quote escape
     const ps = [
+      // System.Drawing supplies SystemIcons below. Windows PowerShell loads it
+      // as a Forms dependency; naming it keeps the snippet correct under pwsh.
       "Add-Type -AssemblyName System.Windows.Forms;",
+      "Add-Type -AssemblyName System.Drawing;",
       "$n = New-Object System.Windows.Forms.NotifyIcon;",
       "$n.Icon = [System.Drawing.SystemIcons]::Application;",
       "$n.Visible = $true;",

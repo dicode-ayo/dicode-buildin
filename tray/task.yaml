@@ -12,6 +12,11 @@ runtime: deno
 permissions:
   env:
     - DICODE_PORT
+    # deno.land/x/cache resolves its cache root from these before falling back
+    # to HOME (see tray/systray/deps.ts). LOCALAPPDATA is the Windows root and
+    # is not in the runtime's default env allowlist.
+    - LOCALAPPDATA
+    - USERPROFILE
     # gdbus reaches the session bus through these; the daemon forwards no
     # session context by default, so without them the SNI probe cannot tell an
     # unreachable bus from a session that hosts no tray.
@@ -23,7 +28,10 @@ permissions:
   run:
     - "*"
   fs:
-    - path: ~/.cache
+    # ${CACHEDIR} is os.UserCacheDir(), which resolves to the same root
+    # deno.land/x/cache downloads the systray helper into on all three
+    # platforms; ~/.cache names it on Linux only.
+    - path: "${CACHEDIR}"
       permission: rw
   # systray-portable binary download: github.com redirects release assets
   # to *.githubusercontent.com hosts.
