@@ -1,8 +1,8 @@
-// Deletes orphaned task temp files from /tmp AND orphaned per-task
-// scratch directories from ${DATADIR}/tmp/.
+// Deletes orphaned task temp files from the platform temp root AND orphaned
+// per-task scratch directories from ${DATADIR}/tmp/.
 //
-// 1. /tmp file sweep — each dicode runtime writes its wrapper to a file
-//    named  dicode-<kind>-<runID>__<rand>.<ext>  (where <kind> is one
+// 1. temp-root file sweep — each dicode runtime writes its wrapper to a
+//    file named  dicode-<kind>-<runID>__<rand>.<ext>  (where <kind> is one
 //    of shim | runner | task, <runID> is the UUID assigned by the
 //    registry, and the double-underscore separates the run_id from
 //    Go's CreateTemp random suffix). A file is considered an orphan
@@ -20,8 +20,22 @@
 //    in the task itself is best-effort; this cron is the source of
 //    truth.
 
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import type { Dicode, DicodeSdk } from "../sdk.ts";
+
+export interface SweepCounts {
+  scanned: number;
+  deleted: number;
+  skipped: number;
+}
+
 const PREFIXES = ["dicode-shim-", "dicode-runner-", "dicode-task-"];
-const TEMP_DIR = "/tmp";
+
+// The runtimes allocate wrapper files through Go's os.CreateTemp(""), so the
+// sweep root has to be whatever that resolves to — $TMPDIR or /tmp on Unix,
+// %TEMP% on Windows. The task.yaml fs grant names it through ${TEMPDIR}.
+export const TEMP_DIR = tmpdir();
 
 // DIR_TTL_MS is the age threshold for the ${DATADIR}/tmp/ sweep.
 // Any leaf workdir older than this is removed regardless of whether
@@ -38,7 +52,7 @@ interface Run {
   Status: string;
 }
 
-function parseRunID(name: string): string | null {
+export function parseRunID(name: string): string | null {
   for (const prefix of PREFIXES) {
     if (!name.startsWith(prefix)) continue;
     const rest = name.slice(prefix.length);
@@ -84,23 +98,22 @@ async function listDir(dir: string): Promise<Deno.DirEntry[]> {
 // sweepDataDirTmp removes per-invocation scratch directories under
 // ${DATADIR}/tmp/<task>/<uuid>/ that are older than DIR_TTL_MS.
 // Returns counters for logging.
-async function sweepDataDirTmp(): Promise<
-  { scanned: number; deleted: number; skipped: number }
-> {
-  // `||` (not `??`) so a declared-but-unset entry arriving as "" falls back
-  // rather than resolving root to "/tmp" and sweeping the whole system temp.
-  const dataDir = Deno.env.get("DICODE_DATADIR") ||
-    `${Deno.env.get("HOME") ?? "/root"}/.dicode`;
-  const root = `${dataDir}/tmp`;
+async function sweepDataDirTmp(): Promise<SweepCounts> {
+  // `||` (not `??`) throughout: a declared-but-unset entry arrives as "", and
+  // `??` would take it, rooting the sweep at a relative "tmp" under the task's
+  // cwd. HOME is unset on Windows; USERPROFILE is its twin.
+  const home = Deno.env.get("HOME") || Deno.env.get("USERPROFILE") || "/root";
+  const dataDir = Deno.env.get("DICODE_DATADIR") || join(home, ".dicode");
+  const root = join(dataDir, "tmp");
   const cutoff = Date.now() - DIR_TTL_MS;
   let scanned = 0, deleted = 0, skipped = 0;
 
   for (const taskEntry of await listDir(root)) {
     if (!taskEntry.isDirectory) continue;
-    const taskRoot = `${root}/${taskEntry.name}`;
+    const taskRoot = join(root, taskEntry.name);
     for (const leaf of await listDir(taskRoot)) {
       if (!leaf.isDirectory) continue;
-      const path = `${taskRoot}/${leaf.name}`;
+      const path = join(taskRoot, leaf.name);
       scanned++;
       let stat: Deno.FileInfo;
       try {
@@ -125,14 +138,15 @@ async function sweepDataDirTmp(): Promise<
   return { scanned, deleted, skipped };
 }
 
-export default async function main({ dicode }: DicodeSdk) {
-  const running = await collectRunningRunIDs(dicode);
+// sweepTempFiles removes wrapper files under tempDir whose embedded run id is
+// not in running.
+export async function sweepTempFiles(
+  tempDir: string,
+  running: Set<string>,
+): Promise<SweepCounts> {
+  let scanned = 0, deleted = 0, skipped = 0;
 
-  let scanned = 0;
-  let deleted = 0;
-  let skipped = 0;
-
-  for (const entry of await listDir(TEMP_DIR)) {
+  for (const entry of await listDir(tempDir)) {
     if (!entry.isFile) continue;
     const runID = parseRunID(entry.name);
     if (runID === null) continue;
@@ -141,7 +155,7 @@ export default async function main({ dicode }: DicodeSdk) {
       skipped++;
       continue;
     }
-    const path = `${TEMP_DIR}/${entry.name}`;
+    const path = join(tempDir, entry.name);
     try {
       await Deno.remove(path);
       deleted++;
@@ -149,17 +163,23 @@ export default async function main({ dicode }: DicodeSdk) {
       console.warn("remove failed", path, String(err));
     }
   }
+  return { scanned, deleted, skipped };
+}
+
+export default async function main({ dicode }: DicodeSdk) {
+  const running = await collectRunningRunIDs(dicode);
+  const fileSweep = await sweepTempFiles(TEMP_DIR, running);
 
   // Second sweep: per-invocation scratch dirs under ${DATADIR}/tmp/.
   const dirSweep = await sweepDataDirTmp();
 
   console.log("temp-cleanup", {
-    files: { scanned, deleted, skipped },
+    files: fileSweep,
     dirs: dirSweep,
     running: running.size,
   });
   return {
-    files: { scanned, deleted, skipped },
+    files: fileSweep,
     dirs: dirSweep,
     running: running.size,
   };

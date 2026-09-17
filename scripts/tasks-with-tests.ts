@@ -10,7 +10,7 @@
  *   deno run --allow-read scripts/tasks-with-tests.ts
  */
 import { parse as parseYaml } from "jsr:@std/yaml@1";
-import { dirname, resolve } from "jsr:@std/path@1";
+import { dirname, join, resolve } from "jsr:@std/path@1";
 
 // deno-lint-ignore no-explicit-any
 const manifest: any = parseYaml(await Deno.readTextFile("taskset.yaml"));
@@ -26,7 +26,7 @@ for (const [name, entry] of Object.entries(entries)) {
   const dir = resolve(dirname(path));
   if (seen.has(dir)) continue;
   try {
-    const st = await Deno.stat(`${dir}/task.test.ts`);
+    const st = await Deno.stat(join(dir, "task.test.ts"));
     if (!st.isFile) continue;
   } catch {
     continue; // no sibling test file

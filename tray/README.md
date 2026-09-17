@@ -72,7 +72,9 @@ is one that doesn't. After starting a host for the first time, restart the task
 pkill -f buildin/tray
 ```
 
-macOS and Windows render the tray natively and are unaffected.
+macOS and Windows render the tray natively, so the SNI probe above does not apply
+there. Neither platform is exercised in CI, and the Windows helper has never been
+observed to start — see dicode-ayo/dicode-buildin#9.
 
 ## Startup hint
 

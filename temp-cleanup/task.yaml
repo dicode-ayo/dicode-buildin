@@ -4,10 +4,12 @@ name: "Temp File Cleanup"
 description: |
   Deletes orphaned task scratch from two locations:
 
-  1. /tmp files — every dicode task runtime writes its wrapper/shim to
-     a file named dicode-<kind>-<runID>__*.<ext>. A defer removes the
-     file on normal exit; a daemon crash or SIGKILL can leave files
-     behind. Sweeps any whose embedded run_id is not currently running.
+  1. Temp-root files — every dicode task runtime writes its wrapper/shim
+     to a file named dicode-<kind>-<runID>__*.<ext> under the platform
+     temp root ($TMPDIR or /tmp on Unix, %TEMP% on Windows). A defer
+     removes the file on normal exit; a daemon crash or SIGKILL can leave
+     files behind. Sweeps any whose embedded run_id is not currently
+     running.
 
   2. ${DATADIR}/tmp/<task>/<uuid>/ directories — tasks like
      buildin/ai-agent-claude-cli mkdir per-invocation workdirs there
@@ -21,13 +23,23 @@ trigger:
 
 permissions:
   fs:
-    - path: /tmp
+    # ${TEMPDIR} expands to the daemon's os.TempDir(), the call the runtimes
+    # allocate wrapper files through. The sweep reads node:os tmpdir(), which
+    # consults TEMP before TMP where os.TempDir() consults TMP before TEMP:
+    # the two agree unless a host sets them to different directories.
+    - path: "${TEMPDIR}"
       permission: rw
     - path: "${DATADIR}/tmp"
       permission: rw
   env:
     - DICODE_DATADIR
     - HOME
+    # USERPROFILE is the Windows HOME. TMPDIR/TMP/TEMP back node:os tmpdir(),
+    # which reads all three before falling back.
+    - USERPROFILE
+    - TMPDIR
+    - TMP
+    - TEMP
   dicode:
     list_tasks: true
     get_runs: true
